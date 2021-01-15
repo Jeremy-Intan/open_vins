@@ -1,0 +1,139 @@
+digraph openvins {
+    /* TODOS
+        setNumThreads : ov_msckf/src/run_illixr_msckf.cpp:227
+        cv::mat constructor? it's inline : ov_msckf/src/run_illixr_msckf.cpp:236,237
+
+        can we remove cv::imread ?
+        ov_msckf/src/run_illixr_msckf.cpp:261
+        ov_msckf/src/run_illixr_msckf.cpp:277
+
+        do we need to add img0.clone ?
+        ov_msckf/src/run_illixr_msckf.cpp:292
+        ov_msckf/src/run_illixr_msckf.cpp:298
+        ov_msckf/src/run_illixr_msckf.cpp:235
+        ov_msckf/src/run_illixr_msckf.cpp:236
+
+    */
+
+
+    main [label="main : ov_msckf/src/run_illixr_msckf.cpp:192"];
+
+    main_body_1 [label="ov_msckf/src/run_illixr_msckf.cpp:193-210"];
+
+    main_call_1 [label="ov_msckf/src/run_illixr_msckf.cpp:211"] 
+    main_call_1s [label="load_images : ov_msckf/src/run_illixr_msckf.cpp:135"];
+
+    main_call_2 [label="ov_msckf/src/run_illixr_msckf.cpp:212"] 
+    main_call_2s [label="load_images : ov_msckf/src/run_illixr_msckf.cpp:135"];
+
+    main_call_3 [label="ov_msckf/src/run_illixr_msckf.cpp:213"]
+    main_call_3s [label="load_imu_data : ov_msckf/src/run_illixr_msckf.cpp:159"]
+
+    main_body_2 [label="ov_msckf/src/run_illixr_msckf.cpp:214-222"]
+
+    main_call_4 [label="ov_msckf/src/run_illixr_msckf.cpp:223"]
+    main_call_4s [label="create_params : ov_msckf/src/run_illixr_msckf.cpp:47"]
+
+    main_call_5 [label="ov_msckf/src/run_illixr_msckf.cpp:224"]
+    main_call_5s [label="create_params : ov_msckf/src/core/VioManager.cpp:34"]
+
+    main_body_3 [label="ov_msckf/src/run_illixr_msckf.cpp:225-245"]
+    //TODO: setNumThreads?
+    //TODO: cv::Mat constructor
+
+    main_for [label="main loop : ov_msckf/src/run_illixr_msckf.cpp:246-343"]
+
+    main_for_body_1 [label="ov_msckf/src/run_illixr_msckf.cpp:248-253"]
+
+    main_for_call_1 [label="ov_msckf/src/run_illxir_msckf.cpp:255"]
+    main_for_call_1s [label="feed_measurement_imu : ov_msckf/src/core/VioManager.cpp:137"]
+
+    main_for_body_2 [label="ov_msckf/src/run_illixr_msckf.cpp:256-259"]
+
+    main_for_call_2 [label="ov_msckf/src/run_illixr_msckf.cpp:261"]
+    main_for_call_2s  [label="cv::imread : opencv include/opencv2/imgcodes.hpp:166?"]
+
+    main_for_body_3 [label="ov_msckf/src/run_illixr_msckf.cpp:262-275"]
+
+    main_for_call_3 [label="ov_msckf/src/run_illixr_msckf.cpp:277"]
+    main_for_call_3s [label="cv::imread : opencv include/opencv2/imgcodes.hpp:166?"]
+
+    main_for_body_4 [label="ov_msckf/src/run_illixr_msckf.cpp:278-322 (skip 302 - 316)"]
+
+    main_for_call_4 [label="ov_msckf/src/run_illxir_msckf.cpp:326"]
+    main_for_call_4s [label="initilaize_with_gt : ov_msckf/src/core/VioManager.h:111"]
+
+    main_for_body_5 [label="ov_msckf/src/run_illixr_msckf.cpp:327"]
+
+    main_for_call_5 [label="ov_msckf/src/run_illxir_msckf.cpp:328"]
+    main_for_call_5s [label="feed_measurement_stereo : ov_msckf/src/core/VioManager.cpp:181"]
+
+    main_for_body_6 [label="ov_msckf/src/run_illixr_msckf.cpp:328-343"]
+
+    main_body_4 [label="ov_msckf/src/run_illxir_msckf.cpp:364-368"]
+
+    //graph
+    main -> main_body_1 [label=body]
+
+    main -> main_call_1
+    main_call_1 -> main_call_1s [label=call]
+    main_call_1s -> "*"
+
+    main -> main_call_2
+    main_call_2 -> main_call_2s [label=call]
+    main_call_2s -> "*"
+
+    main -> main_call_3
+    main_call_3 -> main_call_3s [label=call]
+    main_call_3s -> "*"
+
+    main -> main_body_2 [label=body]
+
+    main -> main_call_4
+    main_call_4 -> main_call_4s [label=call]
+    main_call_4s -> "*"
+
+    main -> main_call_5
+    main_call_5 -> main_call_5s [label=call]
+    main_call_5s -> "*"
+
+    main -> main_body_3 [label=body]
+    //TODO: setNumThreads?
+    //TODO: cv::Mat constructor
+    
+    main -> main_for [label="body loop"]
+
+    main_for -> main_for_body_1 [label="body"]
+    
+    main_for -> main_for_call_1
+    main_for_call_1 -> main_for_call_1s [label="call"]
+    main_for_call_1s -> "*" // I believe this call propagate
+
+    main_for -> main_for_body_2 [label="body"]
+
+    main_for -> main_for_call_2
+    main_for_call_2 -> main_for_call_2s [label="call"]
+    main_for_call_2s -> "*" // not sure if this imread is necesarry not sure in graph
+
+    main_for -> main_for_body_3 [label="body"]
+
+    main_for -> main_for_call_3
+    main_for_call_3 -> main_for_call_3s [label="call"]
+    main_for_call_3s -> "*" // not sure if this imread is necessary to put in graph
+
+    main_for -> main_for_body_4 [label="body"]
+
+    main_for -> main_for_call_4
+    main_for_call_4 -> main_for_call_4s [label="call"]
+    main_for_call_4s -> "*" 
+
+    main_for -> main_for_body_5 [label="body"]
+
+    main_for -> main_for_call_5
+    main_for_call_5 -> main_for_call_5s [label="call"]
+    main_for_call_5s -> "*" 
+
+    main_for -> main_for_body_6 [label="body"]
+
+    main -> main_body_4 [label="body"]
+}
