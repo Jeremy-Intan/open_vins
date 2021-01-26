@@ -33,9 +33,9 @@ INCLUDES += -I$(LLVM_SRC_ROOT)/include -I../include -I$(HPVM_BUILD_DIR)/include
 
 ## BEGIN HPVM MAKEFILE
 LANGUAGE=hpvm
-SRCDIR_OBJS=VioManager.ll State.ll StateHelper.ll Propagator.ll TrackBase.ll TrackKLT.ll InertialInitializer.ll Feature.ll
-OBJS_SRC=src/core/VioManager.cpp src/state/State.cpp src/state/StateHelper.cpp src/state/Propagator.cpp ../ov_core/src/track/TrackBase.cpp ../ov_core/src/track/TrackKLT.cpp ../ov_core/src/init/InertialInitializer.cpp ../ov_core/src/feat/Feature.cpp
-HPVM_OBJS=main.hpvm.ll
+SRCDIR_OBJS=VioManager.ll State.ll run_illixr_msckf.ll Propagator.ll TrackBase.ll TrackKLT.ll InertialInitializer.ll Feature.ll
+OBJS_SRC=core/VioManager.cpp state/State.cpp run_illixr_msckf state/Propagator.cpp ../../ov_core/src/track/TrackBase.cpp ../../ov_core/src/track/TrackKLT.cpp ../../ov_core/src/init/InertialInitializer.cpp ../../ov_core/src/feat/Feature.cpp
+HPVM_OBJS=StateHelper.hpvm.ll
 APP = $(EXE)
 APP_CFLAGS += $(INCLUDES) -ffast-math -O3 -fno-lax-vector-conversions -fno-vectorize -fno-slp-vectorize
 APP_CXXFLAGS += $(INCLUDES) -ffast-math -O3 -fno-lax-vector-conversions -fno-vectorize -fno-slp-vectorize
@@ -126,10 +126,10 @@ $(BUILD_DIR):
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/%.cpp
 	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
-$(BUILD_DIR)/main.ll : $(SRC_DIR)/main.cpp
+$(BUILD_DIR)/StateHelper.ll : $(SRC_DIR)/state/StateHelper.cpp
 	$(CC) $(CXXFLAGS) -emit-llvm -S -o $@ $<
 
-$(BUILD_DIR)/main.hpvm.ll : $(BUILD_DIR)/main.ll
+$(BUILD_DIR)/StateHelper.hpvm.ll : $(BUILD_DIR)/StateHelper.ll
 	$(OPT) $(TESTGEN_OPTFLAGS) $< -S -o $@
 
 ## END HPVM MAKEFILE
