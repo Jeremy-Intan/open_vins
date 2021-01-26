@@ -112,18 +112,18 @@ namespace ov_msckf {
         std::unordered_map<size_t, bool> _cam_intrinsics_model;
 
 
+        /// Covariance of all active variables
+        Eigen::MatrixXd _Cov;
+
+        /// Vector of variables
+        std::vector<Type*> _variables;
+
     private:
 
         // Define that the state helper is a friend class of this class
         // This will allow it to access the below functions which should normally not be called
         // This prevents a developer from thinking that the "insert clone" will actually correctly add it to the covariance
         friend class StateHelper;
-
-        /// Covariance of all active variables
-        Eigen::MatrixXd _Cov;
-
-        /// Vector of variables
-        std::vector<Type*> _variables;
 
 
     };

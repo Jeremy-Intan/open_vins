@@ -260,7 +260,9 @@ void UpdaterMSCKF::update(State *state, std::vector<Feature*>& feature_vec) {
     Eigen::MatrixXd R_big = _options.sigma_pix_sq*Eigen::MatrixXd::Identity(res_big.rows(),res_big.rows());
 
     // 6. With all good features update the state
-    StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
+    //StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
+
+    StateHelper::EKFUpdate(state, &Hx_order_big, &Hx_big, &res_big, &R_big); //hpvm
     rT5 =  boost::posix_time::microsec_clock::local_time();
 
     // Debug print timing information

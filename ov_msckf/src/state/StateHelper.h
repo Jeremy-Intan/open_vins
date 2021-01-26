@@ -85,6 +85,10 @@ namespace ov_msckf {
          * @param res residual of updating measurement
          * @param R updating measurement covariance
          */
+        //hpvm version
+        static void EKFUpdate(State *state, const std::vector<Type *> *H_order_p, const Eigen::MatrixXd *H_p,
+                              const Eigen::VectorXd *res_p, const Eigen::MatrixXd *R_p);
+
         static void EKFUpdate(State *state, const std::vector<Type *> &H_order, const Eigen::MatrixXd &H,
                               const Eigen::VectorXd &res, const Eigen::MatrixXd &R);
 
