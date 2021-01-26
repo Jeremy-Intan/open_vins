@@ -279,7 +279,7 @@ void StateHelper::EKFUpdate(State *state, const std::vector<Type *> *H_order_p, 
     llvm_hpvm_track_mem(&M_a, sizeof(M_a)); 
 
     //launch loop
-    void *EkfLoop1 = __hpvm__launcH(0, EKFUpdateMainLoopWrapper, (void *)loopArgs);
+    void *EkfLoop1 = __hpvm__launch(0, EKFUpdateMainLoopWrapper, (void *)loopArgs);
     __hpvm__wait(EkfLoop1);
 
     llvm_hpvm_request_mem(&M_a, sizeof(M_a);
