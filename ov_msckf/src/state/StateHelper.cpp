@@ -124,7 +124,7 @@ void EKFUpdateMainLoop(State *state,                         size_t bytes_state,
     void *thisNode = __hpvm__getNode();
     int i = __hpvm__getNodeInstanceID_x(thisNode);
 
-    /*
+    
     // Sum up effect of each subjacobian = K_i= \sum_m (P_im Hm^T)
     Type *var = state->_variables[i];
     Eigen::MatrixXd M_i = Eigen::MatrixXd::Zero(var->size(), row);
@@ -134,8 +134,8 @@ void EKFUpdateMainLoop(State *state,                         size_t bytes_state,
                          H_p->block(0, (*H_id_p)[i], H_p->rows(), meas_var->size()).transpose();
     }
     M_a->block(var->id(), 0, var->size(), row) = M_i;
-    */
     
+    /*
     const std::vector<Type *> H_order = (*H_order_p);
     const Eigen::MatrixXd H = (*H_p);
     const Eigen::MatrixXd R = (*R_p);
@@ -149,9 +149,9 @@ void EKFUpdateMainLoop(State *state,                         size_t bytes_state,
                          H.block(0, H_id[i], H.rows(), meas_var->size()).transpose();
     }
     M_a.block(var->id(), 0, var->size(), row) = M_i;
-    
+    */
 
-    __hpvm__return(1, bytes_m_a);
+    __hpvm__return(1, bytes_M_a);
 }
 
 typedef struct __attribute__((__packed__)) {
@@ -199,9 +199,7 @@ void EKFUpdateMainLoopWrapper(State *state, size_t bytes_state,
    __hpvm__bindIn(EKFUpML, 11, 11, 0); //M_a
    __hpvm__bindIn(EKFUpML, 12, 12, 0); //bytes_M_a
 
-   __hpmv__bindOut(EKFUpML, 11, 11, 0); //return M_a
-
-   __hpvm__attributes(6, state, H_order_p, H_p, R_p, H_id_p, M_a, 1, M_a);
+   __hpmv__bindOut(EKFUpML, 0, 0, 0); //return M_a
 }
 
 //hpvm version
@@ -284,12 +282,12 @@ void StateHelper::EKFUpdate(State *state, const std::vector<Type *> *H_order_p, 
 
     llvm_hpvm_request_mem(&M_a, sizeof(M_a);
 
-    llvm_hpvm_track_mem(state);
-    llvm_hpvm_track_mem(H_order_p);
-    llvm_hpvm_track_mem(H_p);
-    llvm_hpvm_track_mem(R_p);
-    llvm_hpvm_track_mem(&H_id);
-    llvm_hpvm_track_mem(&M_a); 
+    llvm_hpvm_untrack_mem(state);
+    llvm_hpvm_untrack_mem(H_order_p);
+    llvm_hpvm_untrack_mem(H_p);
+    llvm_hpvm_untrack_mem(R_p);
+    llvm_hpvm_untrack_mem(&H_id);
+    llvm_hpvm_untrack_mem(&M_a); 
 
     __hpvm__cleanup();
 
