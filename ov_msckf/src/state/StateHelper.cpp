@@ -181,25 +181,41 @@ void EKFUpdateMainLoopWrapper(State *state, size_t bytes_state,
                        size_t loop_size;
                        ) 
 {
-   __hpvm__hint(hpvm::DEVICE);
-   __hpvm__attributes(6, state, H_order_p, H_p, R_p, H_id_p, M_a, 1, M_a);
-   void *EKFUpML = __hpvm__createNodeND(1, transform_fxp, loop_size);
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(6, state, H_order_p, H_p, R_p, H_id_p, M_a, 1, M_a);
+    void *EKFUpML = __hpvm__createNodeND(1, transform_fxp, loop_size);
+ 
+    __hpvm__bindIn(EKFUpML, 0, 0, 0); //state
+    __hpvm__bindIn(EKFUpML, 1, 1, 0); //bytes_state
+    __hpvm__bindIn(EKFUpML, 2, 2, 0); //H_order_p
+    __hpvm__bindIn(EKFUpML, 3, 3, 0); //bytes_H_order_p
+    __hpvm__bindIn(EKFUpML, 4, 4, 0); //H_p
+    __hpvm__bindIn(EKFUpML, 5, 5, 0); //bytes_H_p
+    __hpvm__bindIn(EKFUpML, 6, 6, 0); //row
+    __hpvm__bindIn(EKFUpML, 7, 7, 0); //R_p
+    __hpvm__bindIn(EKFUpML, 8, 8, 0); //bytes_R_p
+    __hpvm__bindIn(EKFUpML, 9, 9, 0);  //H_id_p
+    __hpvm__bindIn(EKFUpML, 10, 10, 0); //byes_H_id_p
+    __hpvm__bindIn(EKFUpML, 11, 11, 0); //M_a
+    __hpvm__bindIn(EKFUpML, 12, 12, 0); //bytes_M_a
+ 
+ 
+    __hpmv__bindOut(EKFUpML, 0, 0, 0); //return M_a
+    
+    /*
+    for (Type *var: state->_variables) {
+        // Sum up effect of each subjacobian = K_i= \sum_m (P_im Hm^T)        
+        Eigen::MatrixXd M_i = Eigen::MatrixXd::Zero(var->size(), row);
+        for (size_t i = 0; i < H_order_p->size(); i++) {
+            Type *meas_var = (*H_order_p)[i];
+            M_i.noalias() += state->_Cov.block(var->id(), meas_var->id(), var->size(), meas_var->size()) *
+                             H_p->block(0, (*H_id_p)[i], H_p->rows(), meas_var->size()).transpose();
+        }
+        M_a->block(var->id(), 0, var->size(), res.rows()) = M_i;  
+    }
 
-   __hpvm__bindIn(EKFUpML, 0, 0, 0); //state
-   __hpvm__bindIn(EKFUpML, 1, 1, 0); //bytes_state
-   __hpvm__bindIn(EKFUpML, 2, 2, 0); //H_order_p
-   __hpvm__bindIn(EKFUpML, 3, 3, 0); //bytes_H_order_p
-   __hpvm__bindIn(EKFUpML, 4, 4, 0); //H_p
-   __hpvm__bindIn(EKFUpML, 5, 5, 0); //bytes_H_p
-   __hpvm__bindIn(EKFUpML, 6, 6, 0); //row
-   __hpvm__bindIn(EKFUpML, 7, 7, 0); //R_p
-   __hpvm__bindIn(EKFUpML, 8, 8, 0); //bytes_R_p
-   __hpvm__bindIn(EKFUpML, 9, 9, 0);  //H_id_p
-   __hpvm__bindIn(EKFUpML, 10, 10, 0); //byes_H_id_p
-   __hpvm__bindIn(EKFUpML, 11, 11, 0); //M_a
-   __hpvm__bindIn(EKFUpML, 12, 12, 0); //bytes_M_a
-
-   __hpmv__bindOut(EKFUpML, 0, 0, 0); //return M_a
+    __hpvm__return(1, bytes_M_a);
+    */
 }
 
 //hpvm version
