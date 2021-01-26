@@ -243,7 +243,7 @@ int main(int argc, char** argv) {
 
     // Loop through data files (camera and imu)
     unsigned num_images = 0;
-    for (auto timem : imu0_timestamps) {
+    for (auto timem : imu0_timestamps) {    // We can make the code in this loop a sole DFG, and the DFG will be launched for "imu0_timestamps" times)
         // Handle IMU measurement
         if (imu0_vals.find(timem) != imu0_vals.end()) {
             // convert into correct format
@@ -256,7 +256,7 @@ int main(int argc, char** argv) {
         }
 
         // Handle LEFT camera
-        if (cam0_images.find(timem) != cam0_images.end()) {
+        if (cam0_images.find(timem) != cam0_images.end()) { // leaf node 1
             // Get the image
             img0 = cv::imread(cam0_images_path+ "/" +cam0_images.at(timem), cv::IMREAD_COLOR);
             cv::cvtColor(img0, img0, cv::COLOR_BGR2GRAY);
@@ -272,7 +272,7 @@ int main(int argc, char** argv) {
         }
 
         // Handle RIGHT camera
-        if (cam1_images.find(timem) != cam1_images.end()) {
+        if (cam1_images.find(timem) != cam1_images.end()) { // leaf node 2
             // Get the image
             img1 = cv::imread(cam1_images_path+ "/" +cam1_images.at(timem), cv::IMREAD_COLOR);
             cv::cvtColor(img1, img1, cv::COLOR_BGR2GRAY);
