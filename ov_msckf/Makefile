@@ -100,6 +100,11 @@ else
 FAILSAFE=
 endif
 
+ifeq ($(DEBUG),1)
+	HPVM_OPTFLAGS += -debug
+	GENHPVM_OPTFLAGS += -debug
+endif
+
 # Targets
 default: $(FAILSAFE) $(BUILD_DIR) $(KERNEL_OCL) $(EXE)
 
