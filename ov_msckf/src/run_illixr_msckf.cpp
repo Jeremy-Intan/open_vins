@@ -31,6 +31,12 @@
 #include <iostream>
 #include <algorithm>
 
+// #define BOOST_NO_EXCEPTIONS 0
+#include <boost/throw_exception.hpp>
+// void boost::throw_exception( std::exception const & e ){
+// //do nothing
+// }
+
 using namespace ov_msckf;
 
 VioManager* sys;
