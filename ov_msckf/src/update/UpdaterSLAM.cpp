@@ -436,7 +436,9 @@ void UpdaterSLAM::update(State *state, std::vector<Feature*>& feature_vec) {
     R_big.conservativeResize(ct_meas,ct_meas);
 
     // 5. With all good SLAM features update the state
-    StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
+    //StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
+
+    StateHelper::EKFUpdate(state, &Hx_order_big, &Hx_big, &res_big, &R_big); //hpvm
     rT3 =  boost::posix_time::microsec_clock::local_time();
 
     // Debug print timing information

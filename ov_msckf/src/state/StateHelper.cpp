@@ -109,14 +109,15 @@ void StateHelper::EKFPropagation(State *state, const std::vector<Type*> &order_N
 
 
 
-void EKFUpdateMainLoop(State *state,                         size_t bytes_state, 
+void EKFUpdateMainLoop(State *state,                   size_t bytes_state, 
                        std::vector<Type *> *H_order_p, size_t bytes_H_order_p,
                        //int i, //the index for the node, replace with getNodeInstance 
                        Eigen::MatrixXd *H_p,           size_t bytes_H_p,
+                       //Eigen::VectorXd *res_p,         size_t bytes_res_p,
                        Eigen::Index row, //constant
                        Eigen::MatrixXd *R_p,           size_t bytes_R_p,
-                       std::vector<int> *H_id_p,             size_t bytes_H_id_p,
-                       Eigen::MatrixXd *M_a                  ,size_t bytes_M_a
+                       std::vector<int> *H_id_p,       size_t bytes_H_id_p,
+                       Eigen::MatrixXd *M_a            ,size_t bytes_M_a
                        ) 
 {
 
@@ -156,6 +157,93 @@ void EKFUpdateMainLoop(State *state,                         size_t bytes_state,
     __hpvm__return(1, bytes_M_a);
 }
 
+
+void EKFUpdateLeaf1(State *state,                   size_t bytes_state,  
+                    std::vector<Type *> *H_order_p, size_t bytes_H_order_p,
+                    //int i, //the index for the node, replace with getNodeInstance 
+                    Eigen::MatrixXd *H_p,           size_t bytes_H_p,
+                    //Eigen::VectorXd *res_p,
+                    Eigen::Index row, //constant
+                    Eigen::MatrixXd *R_p,           size_t bytes_R_p,
+                    std::vector<int> *H_id_p,       size_t bytes_H_id_p,
+                    Eigen::MatrixXd *M_a            ,size_t bytes_M_a
+                    ) 
+{
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(5, state, H_p, R_p, H_id_p, M_a, 2, H_id_p, M_a);
+
+    assert(row == R_p->rows());
+    assert(H_p->rows() == row);
+    //Eigen::MatrixXd 
+    (*M_a) = Eigen::MatrixXd::Zero(state->_Cov.rows(), row);
+
+
+    // Get the location in small jacobian for each measuring variable
+    int current_it = 0;
+    //std::vector<int> H_id;
+    for (Type *meas_var: (*H_order_p)) {
+        H_id_p->push_back(current_it);
+        current_it += meas_var->size();
+    }
+
+    __hpvm__return(2, bytes_H_id_p, bytes_M_a);
+}
+
+//change to pointers
+void EKFUpdateLeaf2(State *state,                   size_t bytes_state,  
+                    std::vector<Type *> *H_order_p, size_t bytes_H_order_p,
+                    Eigen::MatrixXd *H_p,           size_t bytes_H_p,
+                    Eigen::VectorXd *res_p,         size_t bytes_res_p,
+                    Eigen::MatrixXd *R_p,           size_t bytes_R_p,
+                    Eigen::MatrixXd *M_a            ,size_t bytes_M_a
+                    ) 
+{
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(6, state, H_order_p, H_p, res_p, R_p, M_a, 1, state);
+
+    //==========================================================
+    //==========================================================
+    // Get covariance of the involved terms
+    Eigen::MatrixXd P_small = StateHelper::get_marginal_covariance(state, *H_order_p);
+
+    // Residual covariance S = H*Cov*H' + R
+    Eigen::MatrixXd S(R_p->rows(), R_p->rows());
+    S.triangularView<Eigen::Upper>() = (*H_p) * P_small * H_p->transpose();
+    S.triangularView<Eigen::Upper>() += (*R_p);
+    //Eigen::MatrixXd S = H * P_small * H.transpose() + R;
+
+    // Invert our S (should we use a more stable method here??)
+    Eigen::MatrixXd Sinv = Eigen::MatrixXd::Identity(R_p->rows(), R_p->rows());
+    S.selfadjointView<Eigen::Upper>().llt().solveInPlace(Sinv);
+    Eigen::MatrixXd K = (*M_a) * Sinv.selfadjointView<Eigen::Upper>();
+    //Eigen::MatrixXd K = M_a * S.inverse();
+
+    // Update Covariance
+    state->_Cov.triangularView<Eigen::Upper>() -= K * M_a->transpose();
+    state->_Cov = state->_Cov.selfadjointView<Eigen::Upper>();
+    //Cov -= K * M_a.transpose();
+    //Cov = 0.5*(Cov+Cov.transpose());
+
+    // We should check if we are not positive semi-definitate (i.e. negative diagionals is not s.p.d)
+    Eigen::VectorXd diags = state->_Cov.diagonal();
+    bool found_neg = false;
+    for(int i=0; i<diags.rows(); i++) {
+        if(diags(i) < 0.0) {
+            printf(RED "StateHelper::EKFUpdate() - diagonal at %d is %.2f\n" RESET,i,diags(i));
+            found_neg = true;
+        }
+    }
+    assert(!found_neg);
+
+    // Calculate our delta and update all our active states
+    Eigen::VectorXd dx = K*(*res_p);
+    for (size_t i = 0; i < state->_variables.size(); i++) {
+        state->_variables.at(i)->update(dx.block(state->_variables.at(i)->id(), 0, state->_variables.at(i)->size(), 1));
+    }
+
+    __hpvm__return(1, bytes_state);
+}
+
 typedef struct __attribute__((__packed__)) {
     State *state; 
     size_t bytes_state; 
@@ -163,6 +251,8 @@ typedef struct __attribute__((__packed__)) {
     size_t bytes_H_order_p;
     Eigen::MatrixXd *H_p; 
     size_t bytes_H_p;
+    //Eigen::VectorXd *res_p;
+    //size_t bytes_res_p;
     Eigen::Index row; //constant
     Eigen::MatrixXd *R_p;
     size_t bytes_R_p;
@@ -177,6 +267,7 @@ void EKFUpdateMainLoopWrapper(State *state, size_t bytes_state,
                        std::vector<Type *> *H_order_p, size_t bytes_H_order_p,
                        Eigen::MatrixXd *H_p, size_t bytes_H_p,
                        Eigen::Index row, //constant
+                       //Eigen::VectorXd *res_p,         size_t bytes_res_p,
                        Eigen::MatrixXd *R_p,  size_t bytes_R_p,
                        std::vector<int> *H_id_p,  size_t bytes_H_id_p,
                        Eigen::MatrixXd *M_a, size_t bytes_M_a,
@@ -184,6 +275,7 @@ void EKFUpdateMainLoopWrapper(State *state, size_t bytes_state,
 {
     __hpvm__hint(hpvm::DEVICE);
     __hpvm__attributes(6, state, H_order_p, H_p, R_p, H_id_p, M_a, 1, M_a);
+    //__hpvm__attributes(7, state, H_order_p, H_p, res_p, R_p, H_id_p, M_a, 1, M_a);
     void *EKFUpML = __hpvm__createNodeND(1, EKFUpdateMainLoop, loop_size);
  
     __hpvm__bindIn(EKFUpML, 0, 0, 0); //state
@@ -192,6 +284,8 @@ void EKFUpdateMainLoopWrapper(State *state, size_t bytes_state,
     __hpvm__bindIn(EKFUpML, 3, 3, 0); //bytes_H_order_p
     __hpvm__bindIn(EKFUpML, 4, 4, 0); //H_p
     __hpvm__bindIn(EKFUpML, 5, 5, 0); //bytes_H_p
+    //__hpvm__bindIn(EKFUpML, 6, 6, 0); //row
+    //__hpvm__bindIn(EKFUpML, 7, 7, 0); //bytes_res_p
     __hpvm__bindIn(EKFUpML, 6, 6, 0); //row
     __hpvm__bindIn(EKFUpML, 7, 7, 0); //R_p
     __hpvm__bindIn(EKFUpML, 8, 8, 0); //bytes_R_p
@@ -219,14 +313,160 @@ void EKFUpdateMainLoopWrapper(State *state, size_t bytes_state,
     */
 }
 
+typedef struct __attribute__((__packed__)) {
+    State *state; 
+    size_t bytes_state; 
+    std::vector<Type *> *H_order_p; 
+    size_t bytes_H_order_p;
+    Eigen::MatrixXd *H_p; 
+    size_t bytes_H_p;
+    Eigen::VectorXd *res_p;
+    size_t bytes_res_p;
+    Eigen::Index row; //constant
+    Eigen::MatrixXd *R_p;
+    size_t bytes_R_p;
+    std::vector<int> *H_id_p;  
+    size_t bytes_H_id_p;
+    Eigen::MatrixXd *M_a; 
+    size_t bytes_M_a;
+    size_t loop_size;
+} EKFgraphIn;
+
+void EKFUpdateGraph(State *state,                   size_t bytes_state,  
+                    std::vector<Type *> *H_order_p, size_t bytes_H_order_p,
+                    Eigen::MatrixXd *H_p,           size_t bytes_H_p,
+                    Eigen::VectorXd *res_p,         size_t bytes_res_p,
+                    Eigen::Index row, //constant
+                    Eigen::MatrixXd *R_p,           size_t bytes_R_p,
+                    std::vector<int> *H_id_p,       size_t bytes_H_id_p,
+                    Eigen::MatrixXd *M_a,            size_t bytes_M_a,
+                    size_t loop_size
+                    ) 
+{
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(7, state, H_order_p, H_p, res_p, R_p, H_id_p, M_a, 1, state);
+
+    void *EKFLeaf1 = __hpvm__createNodeND(0, EKFUpdateLeaf1);
+    //void *EKFLoop  = __hpvm__createNodeND(1, EKFUpdateMainLoop, loop_size);
+    void *EKFLoop  = __hpvm__createNodeND(0, EKFUpdateMainLoopWrapper);
+    __hpvm__bindIn(EKFLoop, 15, 13, 0); //loop_size 
+    void *EKFLeaf2 = __hpvm__createNodeND(0, EKFUpdateLeaf2);
+
+    //state -> state and bytes_state -> bytes_state
+    __hpvm__bindIn(EKFLeaf1, 0, 0, 0);
+    __hpvm__bindIn(EKFLeaf1, 1, 1, 0);
+    __hpvm__bindIn(EKFLoop, 0, 0, 0);
+    __hpvm__bindIn(EKFLoop, 1, 1, 0);
+    __hpvm__bindIn(EKFLeaf2, 0, 0, 0);
+    __hpvm__bindIn(EKFLeaf2, 1, 1, 0);
+
+    //H_order_p -> H_order_p and bytes_H_order_p -> bytes_H_order_p
+    __hpvm__bindIn(EKFLeaf1, 2, 2, 0);
+    __hpvm__bindIn(EKFLeaf1, 3, 3, 0);
+    __hpvm__bindIn(EKFLoop, 2, 2, 0);
+    __hpvm__bindIn(EKFLoop, 3, 3, 0);
+    __hpvm__bindIn(EKFLeaf2, 2, 2, 0);
+    __hpvm__bindIn(EKFLeaf2, 3, 3, 0);
+   
+    //H_p -> H_p and bytes_H_p -> bytes_H_p
+    __hpvm__bindIn(EKFLeaf1, 4, 4, 0); 
+    __hpvm__bindIn(EKFLeaf1, 5, 5, 0); 
+    __hpvm__bindIn(EKFLoop, 4, 4, 0); 
+    __hpvm__bindIn(EKFLoop, 5, 5, 0); 
+    __hpvm__bindIn(EKFLeaf2, 4, 4, 0); 
+    __hpvm__bindIn(EKFLeaf2, 5, 5, 0); 
+
+    //res_p -> res_p and bytes_res_p -> bytes_res_p
+    __hpvm__bindIn(EKFLeaf2, 6, 6, 0);
+    __hpvm__bindIn(EKFLeaf2, 7, 7, 0);
+
+    //row -> row
+    __hpvm__bindIn(EKFLeaf1, 8, 6, 0);
+    __hpvm__bindIn(EKFLoop, 8, 6, 0);
+
+    //R_p -> R_p and bytes_R_p -> bytes_R_p
+    __hpvm__bindIn(EKFLeaf1, 9, 7, 0);
+    __hpvm__bindIn(EKFLeaf1, 10, 8, 0);
+    __hpvm__bindIn(EKFLoop, 9, 7, 0);
+    __hpvm__bindIn(EKFLoop, 10, 8, 0);
+    __hpvm__bindIn(EKFLeaf2, 9, 8, 0);
+    __hpvm__bindIn(EKFLeaf2, 10, 9, 0);
+
+    //H_id_p -> H_id_p and bytes_H_id_p -> bytes_H_id_p
+    __hpvm__bindIn(EKFLeaf1, 11, 9, 0);
+    __hpvm__bindIn(EKFLeaf1, 12, 10, 0);
+    __hpvm__bindIn(EKFLoop, 11, 9, 0);
+    __hpvm__edge(EKFLeaf1, EKFLoop, 1, 0, 10, 0);
+    //__hpvm__bindIn(EKFLoop, 12, 10, 0);
+
+    //M_a -> M_a and bytes_M_a -> bytes_M_a
+    __hpvm__bindIn(EKFLeaf1, 13, 11, 0);
+    __hpvm__bindIn(EKFLeaf1, 14, 12, 0);
+    __hpvm__bindIn(EKFLoop, 13, 11, 0);
+    __hpvm__edge(EKFLeaf1, EKFLoop, 1, 1, 12, 0);
+    __hpvm__bindIn(EKFLeaf2, 13, 10, 0);
+    __hpvm__edge(EKFLoop, EKFLeaf2, 1, 0, 11, 0);
+
+    __hpvm__bindOut(EKFLoop, 0, 0, 0);
+}
+
+
 //hpvm version
 void StateHelper::EKFUpdate(State *state, std::vector<Type *> *H_order_p, Eigen::MatrixXd *H_p,
                             Eigen::VectorXd *res_p, Eigen::MatrixXd *R_p) {
 
+    Eigen::MatrixXd M_a;// = Eigen::MatrixXd::Zero(state->_Cov.rows(), res.rows());
+    std::vector<int> H_id;
+
+    __hpvm__init();
+
+    EKFgraphIn *EKFgraphArgs = (EKFgraphIn *) malloc(sizeof(EKFgraphIn));
+
+    EKFgraphArgs->state = state; 
+    EKFgraphArgs->bytes_state = sizeof(*state); 
+    EKFgraphArgs->H_order_p = H_order_p; 
+    EKFgraphArgs->bytes_H_order_p = sizeof(*H_order_p);
+    EKFgraphArgs->H_p = H_p; 
+    EKFgraphArgs->bytes_H_p = sizeof(*H_p);
+    EKFgraphArgs->row = res_p->rows(); //constant
+    EKFgraphArgs->res_p = res_p,
+    EKFgraphArgs->bytes_res_p = sizeof(*res_p),
+    EKFgraphArgs->R_p = R_p;
+    EKFgraphArgs->bytes_R_p = sizeof(*R_p);
+    EKFgraphArgs->H_id_p = &H_id;  
+    EKFgraphArgs->bytes_H_id_p = sizeof(H_id);
+    EKFgraphArgs->M_a = &M_a; 
+    EKFgraphArgs->bytes_M_a = sizeof(M_a);
+    EKFgraphArgs->loop_size = (state->_variables).size();
+
+    llvm_hpvm_track_mem(EKFgraphArgs->state, sizeof(*state));
+    llvm_hpvm_track_mem(EKFgraphArgs->H_order_p, sizeof(*H_order_p));
+    llvm_hpvm_track_mem(EKFgraphArgs->H_p, sizeof(*H_p));
+    llvm_hpvm_track_mem(EKFgraphArgs->res_p, sizeof(*res_p));
+    llvm_hpvm_track_mem(EKFgraphArgs->R_p, sizeof(*R_p));
+    llvm_hpvm_track_mem(&H_id, sizeof(H_id));
+    llvm_hpvm_track_mem(&M_a, sizeof(M_a)); 
+
+    //launch loop
+    void *EkfGraph = __hpvm__launch(0, EKFUpdateGraph, (void *)EKFgraphArgs);
+    __hpvm__wait(EkfGraph);
+
+    llvm_hpvm_request_mem(EKFgraphArgs->state, sizeof(*state));
+
+    llvm_hpvm_untrack_mem(EKFgraphArgs->state);
+    llvm_hpvm_untrack_mem(EKFgraphArgs->H_order_p);
+    llvm_hpvm_untrack_mem(EKFgraphArgs->H_p);
+    llvm_hpvm_untrack_mem(EKFgraphArgs->res_p);
+    llvm_hpvm_untrack_mem(EKFgraphArgs->R_p);
+    llvm_hpvm_untrack_mem(&H_id);
+    llvm_hpvm_untrack_mem(&M_a); 
+
+    __hpvm__cleanup();
     //==========================================================
     //==========================================================
     // Part of the Kalman Gain K = (P*H^T)*S^{-1} = M*S^{-1}
 
+    /*
     std::vector<Type *> H_order = (*H_order_p);
     Eigen::MatrixXd H = (*H_p);
     Eigen::VectorXd res = (*res_p);
@@ -244,7 +484,22 @@ void StateHelper::EKFUpdate(State *state, std::vector<Type *> *H_order_p, Eigen:
         H_id.push_back(current_it);
         current_it += meas_var->size();
     }
+    */
 
+    /*
+    Eigen::MatrixXd M_a; 
+    std::vector<int> H_id;
+
+
+    EKFUpdateLeaf1(state,  
+                   H_order_p, //size_t bytes_H_order_p,
+                   H_p,           //size_t bytes_H_p,
+                   res_p->rows(),
+                   R_p,          // size_t bytes_R_p,
+                   &H_id,      //       size_t bytes_H_id_p,
+                   &M_a           //       ,size_t bytes_M_a
+                   ); 
+    */
     //==========================================================
     //==========================================================
     // For each active variable find its M = P*H^T
@@ -266,7 +521,7 @@ void StateHelper::EKFUpdate(State *state, std::vector<Type *> *H_order_p, Eigen:
     //}
     //hpvm loop
 
-    
+    /*
     __hpvm__init();
 
     Loop1In *loopArgs = (Loop1In *) malloc(sizeof(Loop1In));
@@ -274,12 +529,14 @@ void StateHelper::EKFUpdate(State *state, std::vector<Type *> *H_order_p, Eigen:
     loopArgs->state = state; 
     loopArgs->bytes_state = sizeof(*state); 
     loopArgs->H_order_p = H_order_p; 
-    loopArgs->bytes_H_order_p = sizeof(H_order);
+    loopArgs->bytes_H_order_p = sizeof(*H_order_p);
     loopArgs->H_p = H_p; 
-    loopArgs->bytes_H_p = sizeof(H);
-    loopArgs->row = res.rows(); //constant
+    loopArgs->bytes_H_p = sizeof(*H_p);
+    loopArgs->row = res_p->rows(); //constant
+    //loopArgs->res_p = res_p,
+    //loopArgs->bytes_res_p = sizeof(*res_p),
     loopArgs->R_p = R_p;
-    loopArgs->bytes_R_p = sizeof(R);
+    loopArgs->bytes_R_p = sizeof(*R_p);
     loopArgs->H_id_p = &H_id;  
     loopArgs->bytes_H_id_p = sizeof(H_id);
     loopArgs->M_a = &M_a; 
@@ -287,9 +544,10 @@ void StateHelper::EKFUpdate(State *state, std::vector<Type *> *H_order_p, Eigen:
     loopArgs->loop_size = (state->_variables).size();
 
     llvm_hpvm_track_mem(state, sizeof(*state));
-    llvm_hpvm_track_mem(loopArgs->H_order_p, sizeof(H_order));
-    llvm_hpvm_track_mem(loopArgs->H_p, sizeof(H));
-    llvm_hpvm_track_mem(loopArgs->R_p, sizeof(R));
+    llvm_hpvm_track_mem(loopArgs->H_order_p, sizeof(*H_order_p));
+    llvm_hpvm_track_mem(loopArgs->H_p, sizeof(*H_p));
+    //llvm_hpvm_track_mem(loopArgs->res_p, sizeof(*res_p));
+    llvm_hpvm_track_mem(loopArgs->R_p, sizeof(*R_p));
     llvm_hpvm_track_mem(&H_id, sizeof(H_id));
     llvm_hpvm_track_mem(&M_a, sizeof(M_a)); 
 
@@ -302,12 +560,22 @@ void StateHelper::EKFUpdate(State *state, std::vector<Type *> *H_order_p, Eigen:
     llvm_hpvm_untrack_mem(state);
     llvm_hpvm_untrack_mem(loopArgs->H_order_p);
     llvm_hpvm_untrack_mem(loopArgs->H_p);
+    //llvm_hpvm_untrack_mem(loopArgs->res_p);
     llvm_hpvm_untrack_mem(loopArgs->R_p);
     llvm_hpvm_untrack_mem(&H_id);
     llvm_hpvm_untrack_mem(&M_a); 
 
     __hpvm__cleanup();
 
+    EKFUpdateLeaf2(state, //size_t bytes_state,  
+                   H_order_p, //size_t bytes_H_order_p,
+                   H_p,           //size_t bytes_H_p,
+                   res_p,
+                   R_p,          // size_t bytes_R_p,
+                   &M_a           //       ,size_t bytes_M_a
+                  );
+    */
+    /*
     //==========================================================
     //==========================================================
     // Get covariance of the involved terms
@@ -347,7 +615,7 @@ void StateHelper::EKFUpdate(State *state, std::vector<Type *> *H_order_p, Eigen:
     for (size_t i = 0; i < state->_variables.size(); i++) {
         state->_variables.at(i)->update(dx.block(state->_variables.at(i)->id(), 0, state->_variables.at(i)->size(), 1));
     }
-
+    */
 }
 
 void StateHelper::EKFUpdate(State *state, const std::vector<Type *> &H_order, const Eigen::MatrixXd &H,
