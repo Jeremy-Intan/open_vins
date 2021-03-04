@@ -249,7 +249,8 @@ void UpdaterMSCKF::update(State *state, std::vector<Feature*>& feature_vec) {
 
 
     // 5. Perform measurement compression
-    UpdaterHelper::measurement_compress_inplace(Hx_big, res_big);
+    //UpdaterHelper::measurement_compress_inplace(Hx_big, res_big);
+    UpdaterHelper::measurement_compress_inplace(&Hx_big, &res_big); //hpvm
     if(Hx_big.rows() < 1) {
         return;
     }

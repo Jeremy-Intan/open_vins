@@ -87,6 +87,18 @@ namespace ov_core {
             currid = (size_t) numaruco + 1;
         }
 
+        void set_calibration_undistort(Feature *feat, size_t cam_id, size_t m){
+            cv::Point2f pt(feat->uvs.at(camid).at(m)(0), feat->uvs.at(camid).at(m)(1));
+            cv::Point2f pt_n = undistort_point(pt,camid);
+            feat->uvs_norm.at(camid).at(m)(0) = pt_n.x;
+            feat->uvs_norm.at(camid).at(m)(1) = pt_n.y;
+        }
+
+        void set_calibration_undistort_wrapper(Feature *feat, size_t cam_id, size_t loop_size){
+            for(size_t m=0; m<loop_size; m++) {
+               set_calibration_undistort(feat, cam_id, m);
+            }
+        }
 
         /**
          * @brief Given a the camera intrinsic values, this will set what we should normalize points with.
@@ -186,6 +198,7 @@ namespace ov_core {
                     // Loop through each camera for this feature
                     for (auto const& meas_pair : feat->timestamps) {
                         size_t camid = meas_pair.first;
+                        /**
                         std::unique_lock<std::mutex> lck(mtx_feeds.at(camid));
                         for(size_t m=0; m<feat->uvs.at(camid).size(); m++) {
                             cv::Point2f pt(feat->uvs.at(camid).at(m)(0), feat->uvs.at(camid).at(m)(1));
@@ -193,6 +206,8 @@ namespace ov_core {
                             feat->uvs_norm.at(camid).at(m)(0) = pt_n.x;
                             feat->uvs_norm.at(camid).at(m)(1) = pt_n.y;
                         }
+                        **/
+                        set_calibration_undistort_wrapper(feat, cam_id, feat->uvs.at(camid).size());
                     }
                 }
 

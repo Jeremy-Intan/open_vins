@@ -613,7 +613,49 @@ void UpdaterHelper::nullspace_project_inplace(Eigen::MatrixXd &H_f, Eigen::Matri
 }
 
 
+void measurement_compress_inplace_loop(Eigen::JacobiRotation *tempHo_GR, Eigen::Matrix *H_x, Eigen::VectorXd *res, int n){
+    for (int m=(int)H_x.rows()-1; m>n; m--) {
+        // Givens matrix G
+        tempHo_GR->makeGivens((*H_x)(m-1,n), (*H_x)(m,n));
+        // Multiply G to the corresponding lines (m-1,m) in each matrix
+        // Note: we only apply G to the nonzero cols [n:Ho.cols()-n-1], while
+        //       it is equivalent to applying G to the entire cols [0:Ho.cols()-1].
+        (H_x->block(m-1,n,2,H_x->cols()-n)).applyOnTheLeft(0,1,tempHo_GR->adjoint());
+        (res->block(m-1,0,2,1)).applyOnTheLeft(0,1,tempHo_GR->adjoint());
+    }
+}
 
+void measurement_compress_inplace_loop_wrapper(Eigen::JacobiRotation *tempHo_GR, Eigen::Matrix *H_x, Eigen::VectorXd *res, int loop_size){
+    for (int n=0; n<loop_size; n++) {
+        measurement_compress_inplace(tempoHo_GR, H_x, res, n);
+    }
+}
+
+
+void UpdaterHelper::measurement_compress_inplace(Eigen::MatrixXd *H_x, Eigen::VectorXd *res) {
+
+
+    // Return if H_x is a fat matrix (there is no need to compress in this case)
+    if(H_x->rows() <= H_x->cols())
+        return;
+
+    // Do measurement compression through givens rotations
+    // Based on "Matrix Computations 4th Edition by Golub and Van Loan"
+    // See page 252, Algorithm 5.2.4 for how these two loops work
+    // They use "matlab" index notation, thus we need to subtract 1 from all index
+    Eigen::JacobiRotation<double> tempHo_GR;
+    measurement_compress_inplace_loop_wrapper(&tempHo_GR, H_x, res, H_x->cols());
+
+    // If H is a fat matrix, then use the rows
+    // Else it should be same size as our state
+    int r = std::min(H_x->rows(),H_x->cols());
+
+    // Construct the smaller jacobian and residual after measurement compression
+    assert(r<=H_x->rows());
+    H_x.conservativeResize(r, H_x->cols());
+    res.conservativeResize(r, res->cols());
+
+}
 
 void UpdaterHelper::measurement_compress_inplace(Eigen::MatrixXd &H_x, Eigen::VectorXd &res) {
 

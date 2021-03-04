@@ -130,6 +130,26 @@ void TrackKLT::feed_monocular(double timestamp, cv::Mat &img, size_t cam_id) {
 }
 
 
+void feed_stereo_undistort_left_wrapper(std::vector<cv::Point2f> *npt_l, std::vector<cv::KeyPoint> *good_left, size_t cam_id_left, size_t i){
+    (*npt_l)[i] = undistort_point(good_left->at(i).pt, cam_id_left);
+}
+void feed_stereo_undistort_left_wrapper(std::vector<cv::Point2f> *npt_l, std::vector<cv::KeyPoint> *good_left, size_t cam_id_left, size_t loop_size){
+    for(size_t i=0; i<loop_size; i++) {
+        //npt_l[i] = undistort_point(good_left.at(i).pt, cam_id_left);
+        feed_stereo_undistort_left_wrapper(npt_l, good_left, cam_id_left, i);
+    }
+}
+
+void feed_stereo_undistort_right_wrapper(std::vector<cv::Point2f> *npt_r, std::vector<cv::KeyPoint> *good_right, size_t cam_id_right, size_t i){
+    (*npt_r)[i] = undistort_point(good_right->at(i).pt, cam_id_right);
+}
+
+void feed_stereo_undistort_right_wrapper(std::vector<cv::Point2f> *npt_r, std::vector<cv::KeyPoint> *good_right, size_t cam_id_right, size_t loop_size){
+    for(size_t i=0; i<loop_size; i++) {
+        feed_stereo_undistort_right_wrapper(npt_r, good_right, cam_id_right, i);
+    }
+}
+
 void TrackKLT::feed_stereo(double timestamp, cv::Mat &img_leftin, cv::Mat &img_rightin, size_t cam_id_left, size_t cam_id_right) {
 
     // Start timing
@@ -284,7 +304,7 @@ void TrackKLT::feed_stereo(double timestamp, cv::Mat &img_leftin, cv::Mat &img_r
     //===================================================================================
 
     // Update our feature database, with theses new observations
-    for(size_t i=0; i<good_left.size(); i++) {
+    /*for(size_t i=0; i<good_left.size(); i++) {
         cv::Point2f npt_l = undistort_point(good_left.at(i).pt, cam_id_left);
         database->update_feature(good_ids_left.at(i), timestamp, cam_id_left,
                                  good_left.at(i).pt.x, good_left.at(i).pt.y,
@@ -295,6 +315,22 @@ void TrackKLT::feed_stereo(double timestamp, cv::Mat &img_leftin, cv::Mat &img_r
         database->update_feature(good_ids_right.at(i), timestamp, cam_id_right,
                                  good_right.at(i).pt.x, good_right.at(i).pt.y,
                                  npt_r.x, npt_r.y);
+    }*/
+    std::vector<cv::Point2f> npt_l(good_left.size());
+    std::vector<cv::Point2f> npt_r(good_right.size());
+
+    feed_stereo_undistort_left_wrapper(&npt_l, &good_left, cam_id_left, good_left.size());
+    feed_stereo_undistort_left_wrapper(&npt_r, &good_right, cam_id_right, good_right.size());
+
+    for(size_t i=0; i<good_left.size(); i++) {
+        database->update_feature(good_ids_left.at(i), timestamp, cam_id_left,
+                                 good_left.at(i).pt.x, good_left.at(i).pt.y,
+                                 npt_l.at(i).x, npt_l.at(i).y);
+    }
+    for(size_t i=0; i<good_right.size(); i++) {
+        database->update_feature(good_ids_right.at(i), timestamp, cam_id_right,
+                                 good_right.at(i).pt.x, good_right.at(i).pt.y,
+                                 npt_r.at(i).x, npt_r.at(i).y);
     }
 
     // Move forward in time
@@ -546,6 +582,29 @@ void TrackKLT::perform_detection_stereo(const std::vector<cv::Mat> &img0pyr, con
 
 }
 
+void peform_matching_undistort(std::vector<cv::Point2f> *pts0_n, 
+                               std::vector<cv::Point2f> *pts1_n,
+                               std::vector<cv::Point2f> *pts0,
+                               std::vector<cv::Point2f> *pts1,
+                               size_t id0,
+                               size_t id1,
+                               size_t i
+                               ){
+    (*pts0_n)[i] = undistort_point(pts0->at(i),id0);
+    (*pts1_n)[i] = undistort_point(pts1->at(i),id1);
+}
+void perform_matching_undistort_wrapper(std::vector<cv::Point2f> *pts0_n, 
+                                        std::vector<cv::Point2f> *pts1_n,
+                                        std::vector<cv::Point2f> *pts0,
+                                        std::vector<cv::Point2f> *pts1,
+                                        size_t id0,
+                                        size_t id1,
+                                        size_t loop_size, 
+                                        ){
+    for(size_t i=0; i<loop_size; i++) {
+        perform_matching_undistort(pts0_n, pts1_n, pts0, pts1, id0, id1, i);
+    }
+}
 
 void TrackKLT::perform_matching(const std::vector<cv::Mat>& img0pyr, const std::vector<cv::Mat>& img1pyr,
                                 std::vector<cv::KeyPoint>& kpts0, std::vector<cv::KeyPoint>& kpts1,
@@ -584,10 +643,12 @@ void TrackKLT::perform_matching(const std::vector<cv::Mat>& img0pyr, const std::
     // Normalize these points, so we can then do ransac
     // We don't want to do ransac on distorted image uvs since the mapping is nonlinear
     std::vector<cv::Point2f> pts0_n, pts1_n;
-    for(size_t i=0; i<pts0.size(); i++) {
+    /**for(size_t i=0; i<pts0.size(); i++) {
         pts0_n.push_back(undistort_point(pts0.at(i),id0));
         pts1_n.push_back(undistort_point(pts1.at(i),id1));
     }
+    **/
+    perform_matching_undistort_wrapper(&pts0_n, &pts1_n, &pts0, &pts1, id0, id1, pts0.size());
 
     // Do RANSAC outlier rejection (note since we normalized the max pixel error is now in the normalized cords)
     std::vector<uchar> mask_rsc;
