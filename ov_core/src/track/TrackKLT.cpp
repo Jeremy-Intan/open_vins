@@ -19,6 +19,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "TrackKLT.h"
+#include "../../../../include/hpvm.h"
 
 
 using namespace ov_core;
@@ -129,25 +130,217 @@ void TrackKLT::feed_monocular(double timestamp, cv::Mat &img, size_t cam_id) {
 
 }
 
+void feed_stereo_updateDB_left(FeatureDatabase *database, size_t bytes_database,
+                               std::vector<cv::KeyPoint> *good_left, size_t bytes_good_left,
+                               std::vector<size_t> *good_ids_left, size_t bytes_good_ids_left,
+                               cv::Matx33d *camK_left, size_t bytes_camK_left,
+                               cv::Vec4d *camD_left, size_t bytes_camD_left,
+                               size_t cam_id_left,
+                               double timestamp
+                              ){
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(5, database, good_left, good_ids_left, camK_left, camD_left, 1, database);
 
-void feed_stereo_undistort_left_wrapper(std::vector<cv::Point2f> *npt_l, std::vector<cv::KeyPoint> *good_left, size_t cam_id_left, size_t i){
-    (*npt_l)[i] = undistort_point(good_left->at(i).pt, cam_id_left);
-}
-void feed_stereo_undistort_left_wrapper(std::vector<cv::Point2f> *npt_l, std::vector<cv::KeyPoint> *good_left, size_t cam_id_left, size_t loop_size){
-    for(size_t i=0; i<loop_size; i++) {
-        //npt_l[i] = undistort_point(good_left.at(i).pt, cam_id_left);
-        feed_stereo_undistort_left_wrapper(npt_l, good_left, cam_id_left, i);
+    //void *thisNode = __hpvm__getNode();
+    //int i = __hpvm__getNodeInstanceID_x(thisNode);
+
+
+    for(size_t i=0; i<good_left->size(); i++) {
+        //cv::Point2f npt_l = undistort_point(good_left.at(i).pt, cam_id_left);
+        cv::Point2f npt_l = undistort_point_brown_illixr(good_left->at(i).pt, camK_left, camD_left);
+        database->update_feature(good_ids_left->at(i), timestamp, cam_id_left,
+                                 good_left->at(i).pt.x, good_left->at(i).pt.y,
+                                 npt_l.x, npt_l.y);
     }
+    /*
+    for(size_t i=0; i<good_right.size(); i++) {
+        cv::Point2f npt_r = undistort_point(good_right.at(i).pt, cam_id_right);
+        database->update_feature(good_ids_right.at(i), timestamp, cam_id_right,
+                                 good_right.at(i).pt.x, good_right.at(i).pt.y,
+                                 npt_r.x, npt_r.y);
+    }*/
+
+    __hpvm__return(1, bytes_database);
+    //__hpvm__return(0);
 }
 
-void feed_stereo_undistort_right_wrapper(std::vector<cv::Point2f> *npt_r, std::vector<cv::KeyPoint> *good_right, size_t cam_id_right, size_t i){
-    (*npt_r)[i] = undistort_point(good_right->at(i).pt, cam_id_right);
-}
+void feed_stereo_updateDB_right(FeatureDatabase *database, size_t bytes_database,
+                               std::vector<cv::KeyPoint> *good_right, size_t bytes_good_right,
+                               std::vector<size_t> *good_ids_right, size_t bytes_good_ids_right,
+                               cv::Matx33d *camK_right, size_t bytes_camK_right,
+                               cv::Vec4d *camD_right, size_t bytes_camD_right,
+                               size_t cam_id_right,
+                               double timestamp
+                              ){
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(5, database, good_right, good_ids_right, camK_right, camD_right, 1, database);
 
-void feed_stereo_undistort_right_wrapper(std::vector<cv::Point2f> *npt_r, std::vector<cv::KeyPoint> *good_right, size_t cam_id_right, size_t loop_size){
-    for(size_t i=0; i<loop_size; i++) {
-        feed_stereo_undistort_right_wrapper(npt_r, good_right, cam_id_right, i);
+    //void *thisNode = __hpvm__getNode();
+    //int i = __hpvm__getNodeInstanceID_x(thisNode);
+
+    /*
+    for(size_t i=0; i<good_left->size(); i++) {
+        //cv::Point2f npt_l = undistort_point(good_left.at(i).pt, cam_id_left);
+        cv::Point2f npt_l = undistort_point_brown_illixr(good_left->at(i).pt, camK_left, camD_left);
+        database->update_feature(good_ids_left->at(i), timestamp, cam_id_left,
+                                 good_left->at(i).pt.x, good_left->at(i).pt.y,
+                                 npt_l.x, npt_l.y);
     }
+    */
+    for(size_t i=0; i<good_right->size(); i++) {
+        //cv::Point2f npt_r = undistort_point(good_right.at(i).pt, cam_id_right);
+        cv::Point2f npt_r = undistort_point_brown_illixr(good_right->at(i).pt, camK_right, camD_right);
+        database->update_feature(good_ids_right->at(i), timestamp, cam_id_right,
+                                 good_right->at(i).pt.x, good_right->at(i).pt.y,
+                                 npt_r.x, npt_r.y);
+    }
+
+    __hpvm__return(1, bytes_database);
+    //__hpvm__return(0);
+}
+
+void feed_stereo_updateDB(FeatureDatabase *database, size_t bytes_database,
+                          std::vector<cv::KeyPoint> *good_left, size_t bytes_good_left,
+                          std::vector<size_t> *good_ids_left, size_t bytes_good_ids_left,
+                          cv::Matx33d *camK_left, size_t bytes_camK_left,
+                          cv::Vec4d *camD_left, size_t bytes_camD_left,
+                          std::vector<cv::KeyPoint> *good_right, size_t bytes_good_right,
+                          std::vector<size_t> *good_ids_right, size_t bytes_good_ids_right,
+                          cv::Matx33d *camK_right, size_t bytes_camK_right,
+                          cv::Vec4d *camD_right, size_t bytes_camD_right,
+                          size_t cam_id_left,
+                          size_t cam_id_right,
+                          double timestamp
+                          ){
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(9, database, good_left, good_ids_left, camK_left, camD_left, 
+                          good_right, good_ids_right, camK_right, camD_right,
+                       1, database);
+
+    void *left_node = __hpvm__createNodeND(0, feed_stereo_updateDB_left);
+    void *right_node = __hpvm__createNodeND(0, feed_stereo_updateDB_right);
+
+    __hpvm__bindIn(left_node, 0, 0, 0); //database
+    __hpvm__bindIn(left_node, 1, 1, 0);
+    __hpvm__bindIn(left_node, 2, 2, 0); //good_left
+    __hpvm__bindIn(left_node, 3, 3, 0);
+    __hpvm__bindIn(left_node, 4, 4, 0); //good_ids_left
+    __hpvm__bindIn(left_node, 5, 5, 0);
+    __hpvm__bindIn(left_node, 6, 6, 0); //camK_left
+    __hpvm__bindIn(left_node, 7, 7, 0);
+    __hpvm__bindIn(left_node, 8, 8, 0); //camD_left
+    __hpvm__bindIn(left_node, 9, 9, 0);
+    __hpvm__bindIn(left_node, 18, 10, 0); //cam_id_left
+    __hpvm__bindIn(left_node, 20, 11, 0); //timestamp
+    //__hpvm__bindOut(left_node, 0, 0, 0); //return databate
+    __hpvm__bindIn(right_node, 0, 0, 0); //database
+    __hpvm__bindIn(right_node, 1, 1, 0);
+    __hpvm__bindIn(right_node, 10, 2, 0); //good_right
+    __hpvm__bindIn(right_node, 11, 3, 0);
+    __hpvm__bindIn(right_node, 12, 4, 0); //good_ids_right
+    __hpvm__bindIn(right_node, 13, 5, 0);
+    __hpvm__bindIn(right_node, 14, 6, 0); //camK_right
+    __hpvm__bindIn(right_node, 15, 7, 0);
+    __hpvm__bindIn(right_node, 16, 8, 0); //camD_right
+    __hpvm__bindIn(right_node, 17, 9, 0);
+    __hpvm__bindIn(right_node, 19, 10, 0); //cam_id_right
+    __hpvm__bindIn(right_node, 20, 11, 0); //timestamp
+
+    
+}
+
+typedef struct __attribute__((__packed__)) {
+    FeatureDatabase *database; 
+    size_t bytes_database;
+    std::vector<cv::KeyPoint> *good_left;
+    size_t bytes_good_left;
+    std::vector<size_t> *good_ids_left;
+    size_t bytes_good_ids_left;
+    cv::Matx33d *camK_left;
+    size_t bytes_camK_left;
+    cv::Vec4d *camD_left;
+    size_t bytes_camD_left;
+    std::vector<cv::KeyPoint> *good_right;
+    size_t bytes_good_right;
+    std::vector<size_t> *good_ids_right;
+    size_t bytes_good_ids_right;
+    cv::Matx33d *camK_right;
+    size_t bytes_camK_right;
+    cv::Vec4d *camD_right;
+    size_t bytes_camD_right;
+    size_t cam_id_left;
+    size_t cam_id_right;
+    double timestamp;
+} FSUIn;
+
+void feed_stereo_updateDB_graph( 
+                               FeatureDatabase *database,
+                               std::vector<cv::KeyPoint> *good_left,
+                               std::vector<size_t> *good_ids_left,
+                               cv::Matx33d *camK_left,
+                               cv::Vec4d *camD_left,
+                               std::vector<cv::KeyPoint> *good_right,
+                               std::vector<size_t> *good_ids_right,
+                               cv::Matx33d *camK_right,
+                               cv::Vec4d *camD_right,
+                               size_t cam_id_left,
+                               size_t cam_id_right,
+                               double timestamp
+                               ){
+    FSUIn *FSUgraphArgs = (FSUIn *) malloc(sizeof(FSUIn));
+
+    //__hpvm__init();
+    FSUgraphArgs->database = database; 
+    FSUgraphArgs->bytes_database = sizeof(*database);
+    FSUgraphArgs->good_left = good_left;
+    FSUgraphArgs->bytes_good_left = sizeof(*good_left);
+    FSUgraphArgs->good_ids_left = good_ids_left;
+    FSUgraphArgs->bytes_good_ids_left = sizeof(*good_ids_left);
+    FSUgraphArgs->camK_left = camK_left;
+    FSUgraphArgs->bytes_camK_left = sizeof(*camK_left);
+    FSUgraphArgs->camD_left = camD_left;
+    FSUgraphArgs->bytes_camD_left = sizeof(*camD_left);
+    FSUgraphArgs->good_right = good_right;
+    FSUgraphArgs->bytes_good_right = sizeof(*good_right);
+    FSUgraphArgs->good_ids_right = good_ids_right;
+    FSUgraphArgs->bytes_good_ids_right = sizeof(*good_ids_right);
+    FSUgraphArgs->camK_right = camK_right;
+    FSUgraphArgs->bytes_camK_right = sizeof(*camK_right);
+    FSUgraphArgs->camD_right = camD_right;
+    FSUgraphArgs->bytes_camD_right = sizeof(*camD_right);
+    FSUgraphArgs->cam_id_left = cam_id_left;
+    FSUgraphArgs->cam_id_right = cam_id_right;
+    FSUgraphArgs->timestamp = timestamp;
+
+    llvm_hpvm_track_mem(FSUgraphArgs->database, sizeof(*database));
+    llvm_hpvm_track_mem(FSUgraphArgs->good_left, sizeof(*good_left));
+    llvm_hpvm_track_mem(FSUgraphArgs->good_ids_left, sizeof(*good_ids_left));
+    llvm_hpvm_track_mem(FSUgraphArgs->camK_left, sizeof(*camK_left));
+    llvm_hpvm_track_mem(FSUgraphArgs->camD_left, sizeof(*camD_left));
+    llvm_hpvm_track_mem(FSUgraphArgs->good_right, sizeof(*good_right));
+    llvm_hpvm_track_mem(FSUgraphArgs->good_ids_right, sizeof(*good_ids_right));
+    llvm_hpvm_track_mem(FSUgraphArgs->camK_right, sizeof(*camK_right));
+    llvm_hpvm_track_mem(FSUgraphArgs->camD_right, sizeof(*camD_right));
+
+    //launch loop
+    //std::cerr<<"launch 1\n";
+    void *FsuGraph = __hpvm__launch(0, feed_stereo_updateDB, (void *)FSUgraphArgs);
+    __hpvm__wait(FsuGraph);
+
+    llvm_hpvm_request_mem(FSUgraphArgs->database, sizeof(*database));
+
+    llvm_hpvm_untrack_mem(FSUgraphArgs->database);
+    llvm_hpvm_untrack_mem(FSUgraphArgs->good_left);
+    llvm_hpvm_untrack_mem(FSUgraphArgs->good_ids_left);
+    llvm_hpvm_untrack_mem(FSUgraphArgs->camK_left);
+    llvm_hpvm_untrack_mem(FSUgraphArgs->camD_left);
+    llvm_hpvm_untrack_mem(FSUgraphArgs->good_right);
+    llvm_hpvm_untrack_mem(FSUgraphArgs->good_ids_right);
+    llvm_hpvm_untrack_mem(FSUgraphArgs->camK_right);
+    llvm_hpvm_untrack_mem(FSUgraphArgs->camD_right);
+    //__hpvm__cleanup();
+
+    free(FSUgraphArgs);
 }
 
 void TrackKLT::feed_stereo(double timestamp, cv::Mat &img_leftin, cv::Mat &img_rightin, size_t cam_id_left, size_t cam_id_right) {
@@ -208,14 +401,18 @@ void TrackKLT::feed_stereo(double timestamp, cv::Mat &img_leftin, cv::Mat &img_r
     std::vector<cv::KeyPoint> pts_right_new = pts_last[cam_id_right];
 
     // Lets track temporally
+    
     boost::thread t_ll = boost::thread(&TrackKLT::perform_matching, this, boost::cref(img_pyramid_last[cam_id_left]), boost::cref(imgpyr_left),
                                        boost::ref(pts_last[cam_id_left]), boost::ref(pts_left_new), cam_id_left, cam_id_left, boost::ref(mask_ll));
     boost::thread t_rr = boost::thread(&TrackKLT::perform_matching, this, boost::cref(img_pyramid_last[cam_id_right]), boost::cref(imgpyr_right),
                                        boost::ref(pts_last[cam_id_right]), boost::ref(pts_right_new), cam_id_right, cam_id_right, boost::ref(mask_rr));
-
+   
     // Wait till both threads finish
     t_ll.join();
     t_rr.join();
+    //perform_matching(img_pyramid_last[cam_id_left], imgpyr_left, pts_left_new, cam_id_left, cam_id_left, mask_ll);
+    //perform_matching(this, img_pyramid_last[cam_id_right], imgpyr_right, pts_right_new, cam_id_right, cam_id_right, mask_rr);
+    
     rT4 =  boost::posix_time::microsec_clock::local_time();
 
 
@@ -304,34 +501,28 @@ void TrackKLT::feed_stereo(double timestamp, cv::Mat &img_leftin, cv::Mat &img_r
     //===================================================================================
 
     // Update our feature database, with theses new observations
-    /*for(size_t i=0; i<good_left.size(); i++) {
+    /*    
+    for(size_t i=0; i<good_left.size(); i++) {
         cv::Point2f npt_l = undistort_point(good_left.at(i).pt, cam_id_left);
         database->update_feature(good_ids_left.at(i), timestamp, cam_id_left,
                                  good_left.at(i).pt.x, good_left.at(i).pt.y,
                                  npt_l.x, npt_l.y);
-    }
     for(size_t i=0; i<good_right.size(); i++) {
         cv::Point2f npt_r = undistort_point(good_right.at(i).pt, cam_id_right);
         database->update_feature(good_ids_right.at(i), timestamp, cam_id_right,
                                  good_right.at(i).pt.x, good_right.at(i).pt.y,
                                  npt_r.x, npt_r.y);
-    }*/
-    std::vector<cv::Point2f> npt_l(good_left.size());
-    std::vector<cv::Point2f> npt_r(good_right.size());
-
-    feed_stereo_undistort_left_wrapper(&npt_l, &good_left, cam_id_left, good_left.size());
-    feed_stereo_undistort_left_wrapper(&npt_r, &good_right, cam_id_right, good_right.size());
-
-    for(size_t i=0; i<good_left.size(); i++) {
-        database->update_feature(good_ids_left.at(i), timestamp, cam_id_left,
-                                 good_left.at(i).pt.x, good_left.at(i).pt.y,
-                                 npt_l.at(i).x, npt_l.at(i).y);
     }
-    for(size_t i=0; i<good_right.size(); i++) {
-        database->update_feature(good_ids_right.at(i), timestamp, cam_id_right,
-                                 good_right.at(i).pt.x, good_right.at(i).pt.y,
-                                 npt_r.at(i).x, npt_r.at(i).y);
     }
+    */
+
+    cv::Matx33d camK_l = this->camera_k_OPENCV.at(cam_id_left);
+    cv::Vec4d camD_l = this->camera_d_OPENCV.at(cam_id_left);
+    cv::Matx33d camK_r = this->camera_k_OPENCV.at(cam_id_right);
+    cv::Vec4d camD_r = this->camera_d_OPENCV.at(cam_id_right);
+    feed_stereo_updateDB_graph(database, &good_left, &good_ids_left, &camK_l, &camD_l,
+                               &good_right, &good_ids_right, &camK_r, &camD_r,
+                               cam_id_left, cam_id_right, timestamp);
 
     // Move forward in time
     img_last[cam_id_left] = img_left.clone();
@@ -582,30 +773,6 @@ void TrackKLT::perform_detection_stereo(const std::vector<cv::Mat> &img0pyr, con
 
 }
 
-void peform_matching_undistort(std::vector<cv::Point2f> *pts0_n, 
-                               std::vector<cv::Point2f> *pts1_n,
-                               std::vector<cv::Point2f> *pts0,
-                               std::vector<cv::Point2f> *pts1,
-                               size_t id0,
-                               size_t id1,
-                               size_t i
-                               ){
-    (*pts0_n)[i] = undistort_point(pts0->at(i),id0);
-    (*pts1_n)[i] = undistort_point(pts1->at(i),id1);
-}
-void perform_matching_undistort_wrapper(std::vector<cv::Point2f> *pts0_n, 
-                                        std::vector<cv::Point2f> *pts1_n,
-                                        std::vector<cv::Point2f> *pts0,
-                                        std::vector<cv::Point2f> *pts1,
-                                        size_t id0,
-                                        size_t id1,
-                                        size_t loop_size, 
-                                        ){
-    for(size_t i=0; i<loop_size; i++) {
-        perform_matching_undistort(pts0_n, pts1_n, pts0, pts1, id0, id1, i);
-    }
-}
-
 void TrackKLT::perform_matching(const std::vector<cv::Mat>& img0pyr, const std::vector<cv::Mat>& img1pyr,
                                 std::vector<cv::KeyPoint>& kpts0, std::vector<cv::KeyPoint>& kpts1,
                                 size_t id0, size_t id1,
@@ -639,17 +806,15 @@ void TrackKLT::perform_matching(const std::vector<cv::Mat>& img0pyr, const std::
     cv::TermCriteria term_crit = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 15, 0.01);
     cv::calcOpticalFlowPyrLK(img0pyr, img1pyr, pts0, pts1, mask_klt, error, win_size, pyr_levels, term_crit, cv::OPTFLOW_USE_INITIAL_FLOW);
 
-
+    
     // Normalize these points, so we can then do ransac
     // We don't want to do ransac on distorted image uvs since the mapping is nonlinear
     std::vector<cv::Point2f> pts0_n, pts1_n;
-    /**for(size_t i=0; i<pts0.size(); i++) {
+    for(size_t i=0; i<pts0.size(); i++) {
         pts0_n.push_back(undistort_point(pts0.at(i),id0));
         pts1_n.push_back(undistort_point(pts1.at(i),id1));
     }
-    **/
-    perform_matching_undistort_wrapper(&pts0_n, &pts1_n, &pts0, &pts1, id0, id1, pts0.size());
-
+    
     // Do RANSAC outlier rejection (note since we normalized the max pixel error is now in the normalized cords)
     std::vector<uchar> mask_rsc;
     double max_focallength_img0 = std::max(camera_k_OPENCV.at(id0)(0,0),camera_k_OPENCV.at(id0)(1,1));

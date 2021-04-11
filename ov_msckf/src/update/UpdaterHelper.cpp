@@ -19,6 +19,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "UpdaterHelper.h"
+#include "../../../../include/hpvm.h"
 
 
 using namespace ov_core;
@@ -613,49 +614,153 @@ void UpdaterHelper::nullspace_project_inplace(Eigen::MatrixXd &H_f, Eigen::Matri
 }
 
 
-void measurement_compress_inplace_loop(Eigen::JacobiRotation *tempHo_GR, Eigen::Matrix *H_x, Eigen::VectorXd *res, int n){
-    for (int m=(int)H_x.rows()-1; m>n; m--) {
-        // Givens matrix G
-        tempHo_GR->makeGivens((*H_x)(m-1,n), (*H_x)(m,n));
-        // Multiply G to the corresponding lines (m-1,m) in each matrix
-        // Note: we only apply G to the nonzero cols [n:Ho.cols()-n-1], while
-        //       it is equivalent to applying G to the entire cols [0:Ho.cols()-1].
-        (H_x->block(m-1,n,2,H_x->cols()-n)).applyOnTheLeft(0,1,tempHo_GR->adjoint());
-        (res->block(m-1,0,2,1)).applyOnTheLeft(0,1,tempHo_GR->adjoint());
-    }
-}
-
-void measurement_compress_inplace_loop_wrapper(Eigen::JacobiRotation *tempHo_GR, Eigen::Matrix *H_x, Eigen::VectorXd *res, int loop_size){
-    for (int n=0; n<loop_size; n++) {
-        measurement_compress_inplace(tempoHo_GR, H_x, res, n);
-    }
-}
-
-
-void UpdaterHelper::measurement_compress_inplace(Eigen::MatrixXd *H_x, Eigen::VectorXd *res) {
-
-
-    // Return if H_x is a fat matrix (there is no need to compress in this case)
-    if(H_x->rows() <= H_x->cols())
-        return;
-
-    // Do measurement compression through givens rotations
-    // Based on "Matrix Computations 4th Edition by Golub and Van Loan"
-    // See page 252, Algorithm 5.2.4 for how these two loops work
-    // They use "matlab" index notation, thus we need to subtract 1 from all index
-    Eigen::JacobiRotation<double> tempHo_GR;
-    measurement_compress_inplace_loop_wrapper(&tempHo_GR, H_x, res, H_x->cols());
-
-    // If H is a fat matrix, then use the rows
-    // Else it should be same size as our state
-    int r = std::min(H_x->rows(),H_x->cols());
-
-    // Construct the smaller jacobian and residual after measurement compression
-    assert(r<=H_x->rows());
-    H_x.conservativeResize(r, H_x->cols());
-    res.conservativeResize(r, res->cols());
-
-}
+//void measurement_compress_inplace_loop(Eigen::MatrixXd *H_x, size_t bytes_H_x,
+//                                       Eigen::VectorXd *res, size_t bytes_res){
+//                                       //int n){ 
+//    __hpvm__hint(hpvm::DEVICE);
+//    __hpvm__attributes(2, H_x, res, 2, H_x, res);
+//
+//    void *thisNode = __hpvm__getNode();
+//    int n = __hpvm__getNodeInstanceID_x(thisNode);
+//
+//    Eigen::JacobiRotation<double> tempHo_GR;
+//    for (int m=(int)H_x->rows()-1; m>n; m--) {
+//        // Givens matrix G
+//        tempHo_GR.makeGivens((*H_x)(m-1,n), (*H_x)(m,n));
+//        // Multiply G to the corresponding lines (m-1,m) in each matrix
+//        // Note: we only apply G to the nonzero cols [n:Ho.cols()-n-1], while
+//        //       it is equivalent to applying G to the entire cols [0:Ho.cols()-1].
+//        (H_x->block(m-1,n,2,H_x->cols()-n)).applyOnTheLeft(0,1,tempHo_GR.adjoint());
+//        (res->block(m-1,0,2,1)).applyOnTheLeft(0,1,tempHo_GR.adjoint());
+//    }
+//
+//    __hpvm__return(2, bytes_H_x, bytes_res);
+//}
+//
+//void measurement_compress_inplace_loop_wrapper(Eigen::MatrixXd *H_x, size_t bytes_H_x,
+//                                               Eigen::VectorXd *res, size_t bytes_res,
+//                                               size_t loop_size){
+//    __hpvm__hint(hpvm::DEVICE);
+//    __hpvm__attributes(2, H_x, res, 2, H_x, res);
+//
+//    void *MCloop = __hpvm__createNodeND(1, measurement_compress_inplace_loop, loop_size);
+// 
+//    //for (int n=0; n<loop_size; n++) {
+//    //    measurement_compress_inplace_loop(H_x, res, n);
+//    //}
+//
+//    __hpvm__bindIn(MCloop, 0, 0, 0); //H_x
+//    __hpvm__bindIn(MCloop, 1, 1, 0);
+//    __hpvm__bindIn(MCloop, 2, 2, 0); //res
+//    __hpvm__bindIn(MCloop, 3, 3, 0);
+//    __hpvm__bindOut(MCloop, 0, 0, 0); //return H_x
+//    __hpvm__bindOut(MCloop, 1, 1, 0); //return res
+//}
+//
+//void measurement_compress_inplace_leaf2(Eigen::MatrixXd *H_x, size_t bytes_H_x,
+//                                        Eigen::VectorXd *res, size_t bytes_res){
+//    __hpvm__hint(hpvm::DEVICE);
+//    __hpvm__attributes(2, H_x, res, 2, H_x, res);
+//
+//    // If H is a fat matrix, then use the rows
+//    // Else it should be same size as our state
+//    int r = std::min(H_x->rows(),H_x->cols());
+//
+//    // Construct the smaller jacobian and residual after measurement compression
+//    assert(r<=H_x->rows());
+//    H_x->conservativeResize(r, H_x->cols());
+//    res->conservativeResize(r, res->cols());
+//
+//    __hpvm__return(2, bytes_H_x, bytes_res);
+//}
+//
+//void measurement_compress_inplace_graph(Eigen::MatrixXd *H_x, size_t bytes_H_x,
+//                                        Eigen::VectorXd *res, size_t bytes_res,
+//                                        size_t loop_size){
+//    __hpvm__hint(hpvm::DEVICE);
+//    __hpvm__attributes(2, H_x, res, 2, H_x, res);
+//
+//    void *MCloopw = __hpvm__createNodeND(0, measurement_compress_inplace_loop_wrapper);
+//    void *MCleaf2 = __hpvm__createNodeND(0, measurement_compress_inplace_leaf2);
+// 
+//    //for (int n=0; n<loop_size; n++) {
+//    //    measurement_compress_inplace_loop(H_x, res, n);
+//    //}
+//
+//    __hpvm__bindIn(MCloopw, 0, 0, 0); //H_x
+//    __hpvm__bindIn(MCloopw, 1, 1, 0);
+//    __hpvm__bindIn(MCloopw, 2, 2, 0); //res
+//    __hpvm__bindIn(MCloopw, 3, 3, 0);
+//    __hpvm__bindIn(MCloopw, 4, 4, 0); //loop_size
+//
+//    __hpvm__bindIn(MCleaf2, 0, 0, 0); //H_x -> H_x
+//    __hpvm__edge(MCloopw, MCleaf2, 1, 0, 1, 0); 
+//    __hpvm__bindIn(MCleaf2, 2, 2, 0); //res -> res
+//    __hpvm__edge(MCloopw, MCleaf2, 1, 1, 3, 0); 
+//
+//    __hpvm__bindOut(MCleaf2, 0, 0, 0); //return H_x
+//    __hpvm__bindOut(MCleaf2, 1, 1, 0); //return res
+//}
+//
+//typedef struct __attribute__((__packed__)) {
+//    Eigen::MatrixXd *H_x; 
+//    size_t bytes_H_x; 
+//    Eigen::VectorXd *res; 
+//    size_t bytes_res;
+//    size_t loop_size;
+//} MCgraphIn;
+//
+//void UpdaterHelper::measurement_compress_inplace(Eigen::MatrixXd *H_x, Eigen::VectorXd *res) {
+//
+//
+//    // Return if H_x is a fat matrix (there is no need to compress in this case)
+//    if(H_x->rows() <= H_x->cols())
+//        return;
+//    
+//
+//    MCgraphIn *MCgraphArgs = (MCgraphIn *) malloc(sizeof(MCgraphIn));
+//
+//    MCgraphArgs->H_x = H_x; 
+//    MCgraphArgs->bytes_H_x = sizeof(*H_x); 
+//    MCgraphArgs->res = res; 
+//    MCgraphArgs->bytes_res = sizeof(*res);
+//    MCgraphArgs->loop_size = H_x->cols();
+//
+//    llvm_hpvm_track_mem(MCgraphArgs->H_x, sizeof(*H_x));
+//    llvm_hpvm_track_mem(MCgraphArgs->res, sizeof(*res));
+//
+//    //launch loop
+//    void *MCGraph = __hpvm__launch(0, measurement_compress_inplace_graph, (void *)MCgraphArgs);
+//    __hpvm__wait(MCGraph);
+//
+//    llvm_hpvm_request_mem(MCgraphArgs->H_x, sizeof(*H_x));
+//    llvm_hpvm_request_mem(MCgraphArgs->res, sizeof(*res));
+//
+//    llvm_hpvm_untrack_mem(MCgraphArgs->H_x);
+//    llvm_hpvm_untrack_mem(MCgraphArgs->res);
+//
+//    
+//    free(MCgraphArgs);
+//    /**
+//    // Do measurement compression through givens rotations
+//    // Based on "Matrix Computations 4th Edition by Golub and Van Loan"
+//    // See page 252, Algorithm 5.2.4 for how these two loops work
+//    // They use "matlab" index notation, thus we need to subtract 1 from all index
+//    //Eigen::JacobiRotation<double> tempHo_GR;
+//    measurement_compress_inplace_loop_wrapper(H_x, res, H_x->cols());
+//
+//    // If H is a fat matrix, then use the rows
+//    // Else it should be same size as our state
+//    int r = std::min(H_x->rows(),H_x->cols());
+//
+//    // Construct the smaller jacobian and residual after measurement compression
+//    assert(r<=H_x->rows());
+//    H_x->conservativeResize(r, H_x->cols());
+//    res->conservativeResize(r, res->cols());
+//    **/
+//
+//    
+//}
 
 void UpdaterHelper::measurement_compress_inplace(Eigen::MatrixXd &H_x, Eigen::VectorXd &res) {
 

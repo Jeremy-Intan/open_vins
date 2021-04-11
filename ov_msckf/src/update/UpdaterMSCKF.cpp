@@ -249,8 +249,8 @@ void UpdaterMSCKF::update(State *state, std::vector<Feature*>& feature_vec) {
 
 
     // 5. Perform measurement compression
-    //UpdaterHelper::measurement_compress_inplace(Hx_big, res_big);
-    UpdaterHelper::measurement_compress_inplace(&Hx_big, &res_big); //hpvm
+    UpdaterHelper::measurement_compress_inplace(Hx_big, res_big);
+    //UpdaterHelper::measurement_compress_inplace(&Hx_big, &res_big); //hpvm
     if(Hx_big.rows() < 1) {
         return;
     }
@@ -263,7 +263,7 @@ void UpdaterMSCKF::update(State *state, std::vector<Feature*>& feature_vec) {
     // 6. With all good features update the state
     //StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
 
-    StateHelper::EKFUpdate(state, &Hx_order_big, &Hx_big, &res_big, &R_big); //hpvm
+    StateHelper::EKFUpdate_1(state, &Hx_order_big, &Hx_big, &res_big, &R_big); //hpvm
     rT5 =  boost::posix_time::microsec_clock::local_time();
 
     // Debug print timing information

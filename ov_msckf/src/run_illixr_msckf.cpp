@@ -30,6 +30,7 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include "../../../include/hpvm.h"
 
 // #define BOOST_NO_EXCEPTIONS 0
 #include <boost/throw_exception.hpp>
@@ -196,6 +197,7 @@ void load_imu_data(const string &file_name, unordered_map<double, imu_data> &imu
 
 // Main function
 int main(int argc, char** argv) {
+    __hpvm__init();
 
     if (argc != 6) {
         cerr << "Usage: ./run_serial_msckf path_to_cam0 path_to_cam1 path_to_imu0 path_to_cam0_images path_to_cam1_images" << endl;
@@ -369,6 +371,7 @@ int main(int argc, char** argv) {
     // Finally delete our system
     delete sys;
 
+    __hpvm__cleanup();
     // // Done!
     cout << "DONE!" << endl;
     return EXIT_SUCCESS;

@@ -86,7 +86,13 @@ namespace ov_msckf {
          * @param R updating measurement covariance
          */
         //hpvm version
-        static void EKFUpdate(State *state, std::vector<Type *> *H_order_p, Eigen::MatrixXd *H_p,
+        static void EKFUpdate_1(State *state, std::vector<Type *> *H_order_p, Eigen::MatrixXd *H_p,
+                              Eigen::VectorXd *res_p, Eigen::MatrixXd *R_p);
+        
+        static void EKFUpdate_2(State *state, std::vector<Type *> *H_order_p, Eigen::MatrixXd *H_p,
+                              Eigen::VectorXd *res_p, Eigen::MatrixXd *R_p);
+
+        static void EKFUpdate_3(State *state, std::vector<Type *> *H_order_p, Eigen::MatrixXd *H_p,
                               Eigen::VectorXd *res_p, Eigen::MatrixXd *R_p);
 
         static void EKFUpdate(State *state, const std::vector<Type *> &H_order, const Eigen::MatrixXd &H,
@@ -158,6 +164,8 @@ namespace ov_msckf {
          * @param res Residual of initializing measurements
          * @param chi_2_mult Value we should multiply the chi2 threshold by (larger means it will be accepted more measurements)
          */
+        static bool initialize(State *state, Type *new_variable, std::vector<Type *> *H_order, Eigen::MatrixXd &H_R,
+                               Eigen::MatrixXd &H_L, Eigen::MatrixXd &R, Eigen::VectorXd &res, double chi_2_mult);
         static bool initialize(State *state, Type *new_variable, const std::vector<Type *> &H_order, Eigen::MatrixXd &H_R,
                                Eigen::MatrixXd &H_L, Eigen::MatrixXd &R, Eigen::VectorXd &res, double chi_2_mult);
 
@@ -259,3 +267,4 @@ namespace ov_msckf {
 }
 
 #endif //OV_MSCKF_STATE_HELPER_H
+

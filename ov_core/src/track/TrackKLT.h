@@ -78,7 +78,50 @@ namespace ov_core {
         void feed_stereo(double timestamp, cv::Mat &img_left, cv::Mat &img_right, size_t cam_id_left, size_t cam_id_right) override;
 
 
-    protected:
+    protected: /*
+    void perform_matching_undistort(std::vector<cv::Point2f> *pts0_n, size_t bytes_pts0_n, 
+                                   std::vector<cv::Point2f> *pts1_n, size_t bytes_pts1_n, 
+                                   std::vector<cv::Point2f> *pts0, size_t bytes_pts0, 
+                                   std::vector<cv::Point2f> *pts1, size_t bytes_pts1, 
+                                   size_t id0,
+                                   size_t id1
+                                   //,size_t i
+                                   );
+    void perform_matching_undistort_wrapper(std::vector<cv::Point2f> *pts0_n, size_t bytes_pts0_n,
+                                            std::vector<cv::Point2f> *pts1_n, size_t bytes_pts1_n,
+                                            std::vector<cv::Point2f> *pts0, size_t bytes_pts0,
+                                            std::vector<cv::Point2f> *pts1, size_t bytes_pts1,
+                                            size_t id0,
+                                            size_t id1,
+                                            size_t loop_size 
+                                            );
+    void feed_stereo_undistort_left(std::vector<cv::Point2f> *npt_l, size_t bytes_npt_l,
+                                              std::vector<cv::KeyPoint> *good_left, size_t bytes_good_left,
+                                              size_t cam_id_left
+                                              //,size_t i
+                                             );
+    void feed_stereo_undistort_left_wrapper(std::vector<cv::Point2f> *npt_l, size_t bytes_npt_l,
+                                                      std::vector<cv::KeyPoint> *good_left, size_t bytes_good_left,
+                                                      size_t cam_id_left, 
+                                                      size_t loop_size);
+    void feed_stereo_undistort_right(std::vector<cv::Point2f> *npt_r, size_t bytes_npt_r,
+                                               std::vector<cv::KeyPoint> *good_right, size_t bytes_good_right,
+                                               size_t cam_id_right
+                                               //,size_t i
+                                               );
+    void feed_stereo_undistort_right_wrapper(std::vector<cv::Point2f> *npt_r, size_t bytes_ntp_r,
+                                                       std::vector<cv::KeyPoint> *good_right, size_t bytes_good_right,
+                                                       size_t cam_id_right, 
+                                                       size_t loop_size);
+    void feed_stereo_undistort_wrapper(std::vector<cv::Point2f> *npt_l, size_t bytes_npt_l,
+                                                 std::vector<cv::KeyPoint> *good_left, size_t bytes_good_left,
+                                                 size_t cam_id_left, 
+                                                 size_t loop_size_left,
+                                                 std::vector<cv::Point2f> *npt_r, size_t bytes_ntp_r,
+                                                 std::vector<cv::KeyPoint> *good_right, size_t bytes_good_right,
+                                                 size_t cam_id_right,
+                                                 size_t loop_size_right);
+*/
 
         /**
          * @brief Detects new features in the current image

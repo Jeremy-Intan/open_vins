@@ -39,9 +39,33 @@
 #include "feat/FeatureDatabase.h"
 #include "utils/colors.h"
 
+cv::Point2f undistort_point_brown_illixr(cv::Point2f pt_in, cv::Matx33d *camK, cv::Vec4d *camD);
 
 namespace ov_core {
 
+    //void set_calibration_undistort(Feature *feat, size_t bytes_feat, cv::Matx33d *camK, size_t bytes_camK, cv::Vec4d *camD, size_t bytes_camD, size_t camid);
+    //void set_calibration_undistort_wrapper(Feature *feat, size_t bytes_feat, cv::Matx33d *camK, size_t bytes_camK, cv::Vec4d *camD, size_t bytes_camD, size_t camid, size_t loop_size);
+    void set_calibration_undistort_graph(ov_core::Feature *feat, cv::Matx33d *camK, cv::Vec4d *camD, size_t camid);
+
+    /*
+    cv::point2f undistort_point(cv::point2f pt_in, size_t cam_id) {
+        // Determine what camera parameters we should use
+        cv::Matx33d camK = this->camera_k_OPENCV.at(cam_id);
+        cv::Vec4d camD = this->camera_d_OPENCV.at(cam_id);
+        // Call on the fisheye if we should!
+        if (this->camera_fisheye.at(cam_id)) {
+            return undistort_point_fisheye(pt_in, camK, camD);
+        }
+        return undistort_point_brown(pt_in, camK, camD);
+    }*/
+
+    /**
+     * @brief Undistort function RADTAN/BROWN.
+     *
+     * Given a uv point, this will undistort it based on the camera matrices.
+     * To equate this to Kalibr's models, this is what you would use for `pinhole-radtan`.
+     */
+    //cv::Point2f undistort_point_brown_illixr(cv::Point2f pt_in, cv::Matx33d *camK, cv::Vec4d *camD);
 
     /**
      * @brief Visual feature tracking base class
@@ -87,18 +111,20 @@ namespace ov_core {
             currid = (size_t) numaruco + 1;
         }
 
-        void set_calibration_undistort(Feature *feat, size_t cam_id, size_t m){
-            cv::Point2f pt(feat->uvs.at(camid).at(m)(0), feat->uvs.at(camid).at(m)(1));
-            cv::Point2f pt_n = undistort_point(pt,camid);
-            feat->uvs_norm.at(camid).at(m)(0) = pt_n.x;
-            feat->uvs_norm.at(camid).at(m)(1) = pt_n.y;
-        }
+        //void set_calibration_undistort(Feature *feat, size_t bytes_feat, size_t camid);
+        //void set_calibration_undistort_wrapper(Feature *feat, size_t bytes_feat, size_t camid, size_t loop_size);
+        //void set_calibration_undistort(Feature *feat, size_t camid, size_t m){
+        //    cv::Point2f pt(feat->uvs.at(camid).at(m)(0), feat->uvs.at(camid).at(m)(1));
+        //    cv::Point2f pt_n = undistort_point(pt,camid);
+        //    feat->uvs_norm.at(camid).at(m)(0) = pt_n.x;
+        //    feat->uvs_norm.at(camid).at(m)(1) = pt_n.y;
+        //}
 
-        void set_calibration_undistort_wrapper(Feature *feat, size_t cam_id, size_t loop_size){
-            for(size_t m=0; m<loop_size; m++) {
-               set_calibration_undistort(feat, cam_id, m);
-            }
-        }
+        //void set_calibration_undistort_wrapper(Feature *feat, size_t camid, size_t loop_size){
+            //for(size_t m=0; m<loop_size; m++) {
+            //   set_calibration_undistort(feat, camid, m);
+            //}
+        //}
 
         /**
          * @brief Given a the camera intrinsic values, this will set what we should normalize points with.
@@ -198,7 +224,7 @@ namespace ov_core {
                     // Loop through each camera for this feature
                     for (auto const& meas_pair : feat->timestamps) {
                         size_t camid = meas_pair.first;
-                        /**
+                        /*
                         std::unique_lock<std::mutex> lck(mtx_feeds.at(camid));
                         for(size_t m=0; m<feat->uvs.at(camid).size(); m++) {
                             cv::Point2f pt(feat->uvs.at(camid).at(m)(0), feat->uvs.at(camid).at(m)(1));
@@ -206,8 +232,16 @@ namespace ov_core {
                             feat->uvs_norm.at(camid).at(m)(0) = pt_n.x;
                             feat->uvs_norm.at(camid).at(m)(1) = pt_n.y;
                         }
-                        **/
-                        set_calibration_undistort_wrapper(feat, cam_id, feat->uvs.at(camid).size());
+                        */
+                        ///*
+                        //std::cout << "before getnode 1\n";
+                        if (feat->uvs.at(camid).size() > 0){
+                            cv::Matx33d camK = this->camera_k_OPENCV.at(camid);
+                            cv::Vec4d camD = this->camera_d_OPENCV.at(camid);
+                            //std::cout << "before getnode 2\n";
+                            set_calibration_undistort_graph(feat, &camK, &camD, camid);
+                            //*/
+                        }
                     }
                 }
 

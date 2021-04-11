@@ -195,7 +195,8 @@ void UpdaterSLAM::delayed_init(State *state, std::vector<Feature*>& feature_vec)
 
         // Try to initialize, delete new pointer if we failed
         double chi2_multipler = ((int)feat.featid < state->_options.max_aruco_features)? _options_aruco.chi2_multipler : _options_slam.chi2_multipler;
-        if (StateHelper::initialize(state, landmark, Hx_order, H_x, H_f, R, res, chi2_multipler)) {
+        //if (StateHelper::initialize(state, landmark, Hx_order, H_x, H_f, R, res, chi2_multipler)) {
+        if (StateHelper::initialize(state, landmark, &Hx_order, H_x, H_f, R, res, chi2_multipler)) {
             state->_features_SLAM.insert({(*it2)->featid, landmark});
             (*it2)->to_delete = true;
             it2++;
@@ -438,7 +439,8 @@ void UpdaterSLAM::update(State *state, std::vector<Feature*>& feature_vec) {
     // 5. With all good SLAM features update the state
     //StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
 
-    StateHelper::EKFUpdate(state, &Hx_order_big, &Hx_big, &res_big, &R_big); //hpvm
+
+    StateHelper::EKFUpdate_2(state, &Hx_order_big, &Hx_big, &res_big, &R_big); //hpvm
     rT3 =  boost::posix_time::microsec_clock::local_time();
 
     // Debug print timing information

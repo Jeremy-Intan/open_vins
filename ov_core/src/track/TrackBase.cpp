@@ -19,10 +19,103 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "TrackBase.h"
+#include "../../../../include/hpvm.h"
 
+cv::Point2f undistort_point_brown_illixr(cv::Point2f pt_in, cv::Matx33d *camK, cv::Vec4d *camD) {
+    // Convert to opencv format
+    cv::Mat mat(1, 2, CV_32F);
+    mat.at<float>(0, 0) = pt_in.x;
+    mat.at<float>(0, 1) = pt_in.y;
+    mat = mat.reshape(2); // Nx1, 2-channel
+    // Undistort it!
+    cv::undistortPoints(mat, mat, (*camK), (*camD));
+    // Construct our return vector
+    cv::Point2f pt_out;
+    mat = mat.reshape(1); // Nx2, 1-channel
+    pt_out.x = mat.at<float>(0, 0);
+    pt_out.y = mat.at<float>(0, 1);
+    return pt_out;
+}
 
 using namespace ov_core;
 
+void set_calibration_undistort(ov_core::Feature *feat, size_t bytes_feat, cv::Matx33d *camK, size_t bytes_camK, cv::Vec4d *camD, size_t bytes_camD, size_t camid){
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(3, feat, camK, camD, 1, feat);
+    void *thisNode = __hpvm__getNode();
+    int m = __hpvm__getNodeInstanceID_x(thisNode);
+    //std::cout << "after getnode\n";
+
+    cv::Point2f pt(feat->uvs.at(camid).at(m)(0), feat->uvs.at(camid).at(m)(1));
+    cv::Point2f pt_n = undistort_point_brown_illixr(pt, camK, camD);
+    feat->uvs_norm.at(camid).at(m)(0) = pt_n.x;
+    feat->uvs_norm.at(camid).at(m)(1) = pt_n.y;
+    
+    __hpvm__return(1, bytes_feat);
+}
+
+void set_calibration_undistort_wrapper(ov_core::Feature *feat, size_t bytes_feat, cv::Matx33d *camK, size_t bytes_camK, cv::Vec4d *camD, size_t bytes_camD, size_t camid, size_t loop_size){
+    __hpvm__hint(hpvm::DEVICE);
+    __hpvm__attributes(3, feat, camK, camD, 1, feat);
+    //__hpvm__attributes(7, state, H_order_p, H_p, res_p, R_p, H_id_p, M_a, 1, M_a);
+    void *SCUloop = __hpvm__createNodeND(1, set_calibration_undistort, loop_size);
+ 
+    __hpvm__bindIn(SCUloop, 0, 0, 0); //feat
+    __hpvm__bindIn(SCUloop, 1, 1, 0);
+    __hpvm__bindIn(SCUloop, 2, 2, 0); //camK
+    __hpvm__bindIn(SCUloop, 3, 3, 0);
+    __hpvm__bindIn(SCUloop, 4, 4, 0); //camD
+    __hpvm__bindIn(SCUloop, 5, 5, 0);
+    __hpvm__bindIn(SCUloop, 6, 6, 0); //camid
+ 
+    __hpvm__bindOut(SCUloop, 0, 0, 0); //return feat
+    //for(size_t m=0; m<loop_size; m++) {
+    //   set_calibration_undistort(feat, camid, m);
+    //}
+}
+
+typedef struct __attribute__((__packed__)) {
+    ov_core::Feature *feat;
+    size_t bytes_feat; 
+    cv::Matx33d *camK; 
+    size_t bytes_camK;
+    cv::Vec4d *camD;
+    size_t bytes_camD; 
+    size_t camid;
+    size_t loop_size;
+} SCUIn;
+
+void ov_core::set_calibration_undistort_graph(ov_core::Feature *feat, cv::Matx33d *camK, cv::Vec4d *camD, size_t camid){
+    SCUIn *SCUgraphArgs = (SCUIn *) malloc(sizeof(SCUIn));
+
+    SCUgraphArgs->feat = feat;
+    SCUgraphArgs->bytes_feat = sizeof(*feat); 
+    SCUgraphArgs->camK = camK; 
+    SCUgraphArgs->bytes_camK = sizeof(*camK);
+    SCUgraphArgs->camD = camD;
+    SCUgraphArgs->bytes_camD = sizeof(*camD); 
+    SCUgraphArgs->camid = camid;
+    SCUgraphArgs->loop_size = feat->uvs.at(camid).size();
+
+    llvm_hpvm_track_mem(SCUgraphArgs->feat, sizeof(*feat));
+    llvm_hpvm_track_mem(SCUgraphArgs->camK, sizeof(*camK));
+    llvm_hpvm_track_mem(SCUgraphArgs->camD, sizeof(*camD));
+
+    //launch loop
+    //std::cout << "loopsize: " << SCUgraphArgs->loop_size << "\n";
+    //std::cerr << "launch 5\n";
+    void *ScuGraph = __hpvm__launch(0, set_calibration_undistort_wrapper, (void *)SCUgraphArgs);
+    __hpvm__wait(ScuGraph);
+
+    llvm_hpvm_request_mem(SCUgraphArgs->feat, sizeof(*feat));
+
+    llvm_hpvm_untrack_mem(SCUgraphArgs->feat);
+    llvm_hpvm_untrack_mem(SCUgraphArgs->camK);
+    llvm_hpvm_untrack_mem(SCUgraphArgs->camD);
+
+    free(SCUgraphArgs);
+}
+//using namespace ov_core;
 
 void TrackBase::display_active(cv::Mat &img_out, int r1, int g1, int b1, int r2, int g2, int b2) {
 

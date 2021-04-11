@@ -33,9 +33,9 @@ INCLUDES += -I$(LLVM_SRC_ROOT)/include -I../include -I$(HPVM_BUILD_DIR)/include 
 
 ## BEGIN HPVM MAKEFILE
 LANGUAGE=hpvm
-SRCDIR_OBJS=VioManager.ll State.ll run_illixr_msckf.ll Propagator.ll TrackBase.ll TrackKLT.ll InertialInitializer.ll Feature.ll TrackAruco.ll UpdaterMSCKF.ll UpdaterSLAM.ll TrackDescriptor.ll Landmark.ll FeatureInitializer.ll TrackSIM.ll UpdaterHelper.ll
-OBJS_SRC=VioManager.cpp State.cpp run_illixr_msckf.cpp Propagator.cpp TrackBase.cpp TrackKLT.cpp InertialInitializer.cpp Feature.cpp TrackAruco.cpp UpdaterMSCKF.cpp UpdaterSLAM.cpp TrackDescriptor.cpp Landmark.cpp FeatureInitializer.cpp
-HPVM_OBJS=StateHelper.hpvm.ll
+SRCDIR_OBJS=VioManager.ll State.ll Propagator.ll TrackBase.ll TrackKLT.ll InertialInitializer.ll Feature.ll TrackAruco.ll UpdaterMSCKF.ll UpdaterSLAM.ll TrackDescriptor.ll Landmark.ll FeatureInitializer.ll TrackSIM.ll StateHelper.ll UpdaterHelper.ll run_illixr_msckf.ll  
+OBJS_SRC=VioManager.cpp State.cpp Propagator.cpp TrackBase.cpp TrackKLT.cpp InertialInitializer.cpp Feature.cpp TrackAruco.cpp UpdaterMSCKF.cpp UpdaterSLAM.cpp TrackDescriptor.cpp Landmark.cpp FeatureInitializer.cpp TrackSIM.cpp StateHelper.cpp UpdaterHelper.cpp run_illixr_msckf.cpp
+HPVM_OBJS=StateHelper.hpvm.ll UpdaterHelper.hpvm.ll
 APP = $(EXE)
 APP_CFLAGS += $(INCLUDES) -ffast-math -O3 -fno-lax-vector-conversions -fno-vectorize -fno-slp-vectorize
 APP_CXXFLAGS += $(INCLUDES) -ffast-math -O3 -fno-lax-vector-conversions -fno-vectorize -fno-slp-vectorize
@@ -93,6 +93,8 @@ endif
 
 HOST_LINKED = $(BUILD_DIR)/$(APP).linked.ll
 HOST = $(BUILD_DIR)/$(APP).host.ll
+PRE_HOST = $(BUILD_DIR)/$(APP).hpvm.ll
+PRE_HPVM = $(BUILD_DIR)/$(APP).o3.ll
 
 ifeq ($(OPENCL_PATH),)
 FAILSAFE=no_opencl
@@ -103,6 +105,7 @@ endif
 ifeq ($(DEBUG),1)
 	HPVM_OPTFLAGS += -debug
 	GENHPVM_OPTFLAGS += -debug
+        TESTGEN_OPTFLAGS += -debug
 endif
 
 # Targets
@@ -113,49 +116,78 @@ clean :
 	if [ -f DataflowGraph.dot ]; then rm DataflowGraph.dot*; fi
 	if [ -d $(BUILD_DIR) ]; then rm -rf $(BUILD_DIR); fi
 
-$(KERNEL_OCL) : $(KERNEL)
+$(KERNEL_OCL) : $(BUILD_DIR)/$(APP).kernels.ll
 	$(OCLBE) $< -o $@
 
-$(EXE) : $(HOST_LINKED)
+$(EXE) : $(HOST)
 	$(CXX) -O3 $(LDFLAGS) $< -o $@
 
-$(HOST_LINKED) : $(HOST) $(OBJS) $(HPVM_RT_LIB)
+#$(PRE_HPVM) : $(HOST_LINKED)
+#	$(OPT) -O3 $< -S -o $@
+
+$(PRE_HOST) : $(HOST_LINKED)
+	$(OPT) $(TESTGEN_OPTFLAGS) $< -S -o $@
+
+$(HOST) $(BUILD_DIR)/$(APP).kernels.ll : $(PRE_HOST)
+	$(OPT) $(HPVM_OPTFLAGS) -S $< -o $@
+
+$(HOST_LINKED) : $(OBJS) $(HPVM_RT_LIB)
 	$(LLVM_LINK) $^ -S -o $@
 
-$(HOST) $(KERNEL): $(BUILD_DIR)/$(HPVM_OBJS)
-	$(OPT) $(HPVM_OPTFLAGS) -S $< -o $(HOST)
+#$(EXE_LINKED) : $(HOST) $(HPVM_RT_LIB)
+#	$(LLVM_LINK) $^ -O3 -S -o $@
+
+#StateHelper.host.ll StateHelper.kernels.ll : $(BUILD_DIR)/ 
+#	$(OPT) $(HPVM_OPTFLAGS) -S $< -o $@
+
+#UpdaterHelper.host.ll UpdaterHelper.kernels.ll : $(BUILD_DIR)/UpdaterHelper.hpvm.ll 
+#	$(OPT) $(HPVM_OPTFLAGS) -S $< -o $@
+
+#$(HOST) UpdaterHelper.kernels.ll: $(BUILD_DIR)/UpdaterHelper.hpvm.ll
+#	$(OPT) $(HPVM_OPTFLAGS) -S $< -o $(HOST)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/%.cpp
-	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
+	$(CC) $(CXXFLAGS) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/core/%.cpp
-	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
+	$(CC) $(CXXFLAGS) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/state/%.cpp
-	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
+	$(CC) $(CXXFLAGS) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/update/%.cpp
-	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
+	$(CC) $(CXXFLAGS) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/../../ov_core/src/track/%.cpp
-	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
+	$(CC) $(CXXFLAGS) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/../../ov_core/src/init/%.cpp
-	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
+	$(CC) $(CXXFLAGS) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/../../ov_core/src/feat/%.cpp
-	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
+	$(CC) $(CXXFLAGS) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
 $(BUILD_DIR)/%.ll : $(SRC_DIR)/../../ov_core/src/types/%.cpp
-	$(CC) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
+	$(CC) $(CXXFLAGS) $(OBJS_CFLAGS) -emit-llvm -S -o $@ $<
 
-$(BUILD_DIR)/StateHelper.ll : $(SRC_DIR)/state/StateHelper.cpp
-	$(CC) $(CXXFLAGS) -emit-llvm -S -o $@ $<
-
-$(BUILD_DIR)/StateHelper.hpvm.ll : $(BUILD_DIR)/StateHelper.ll
-	$(OPT) $(TESTGEN_OPTFLAGS) $< -S -o $@
-
+#$(BUILD_DIR)/StateHelper.ll : $(SRC_DIR)/state/StateHelper.cpp
+#	$(CC) $(CXXFLAGS) -emit-llvm -S -o $@ $<
+#
+#$(BUILD_DIR)/StateHelper.hpvm.ll : $(BUILD_DIR)/StateHelper.ll
+#	$(OPT) $(TESTGEN_OPTFLAGS) $< -S -o $@
+#
+#$(BUILD_DIR)/UpdaterHelper.ll : $(SRC_DIR)/update/UpdaterHelper.cpp
+#	$(CC) $(CXXFLAGS) -emit-llvm -S -o $@ $<
+#
+#$(BUILD_DIR)/UpdaterHelper.hpvm.ll : $(BUILD_DIR)/UpdaterHelper.ll
+#	$(OPT) $(TESTGEN_OPTFLAGS) $< -S -o $@
+#
+#$(BUILD_DIR)/run_illixr_msckf.ll : $(SRC_DIR)/run_illixr_msckf.cpp
+#	$(CC) $(CXXFLAGS) -emit-llvm -S -o $@ $<
+#
+#$(BUILD_DIR)/run_illixr_msckf.hpvm.ll : $(BUILD_DIR)/run_illixr_msckf.ll
+#	$(OPT) $(TESTGEN_OPTFLAGS) $< -S -o $@
 ## END HPVM MAKEFILE

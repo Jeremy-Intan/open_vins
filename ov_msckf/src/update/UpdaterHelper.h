@@ -152,6 +152,16 @@ namespace ov_msckf {
          * @param H_x State jacobian
          * @param res Measurement residual
          */
+        //static void measurement_compress_inplace(Eigen::MatrixXd *H_x, Eigen::VectorXd *res);
+        /**
+         * @brief This will perform measurement compression
+         *
+         * Please see the @ref update-compress for details on how this works.
+         * Note that this is done **in place** so all matrices will be different after a function call.
+         *
+         * @param H_x State jacobian
+         * @param res Measurement residual
+         */
         static void measurement_compress_inplace(Eigen::MatrixXd &H_x, Eigen::VectorXd &res);
 
 
