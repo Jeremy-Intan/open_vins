@@ -847,7 +847,7 @@ void StateHelper::EKFUpdate_1(State *state, std::vector<Type *> *H_order_p, Eige
     Eigen::MatrixXd M_a;// = Eigen::MatrixXd::Zero(state->_Cov.rows(), res.rows());
     std::vector<int> H_id;
 
-    __hpvm__init();
+    //__hpvm__init();
 
     EKFgraphIn *EKFgraphArgs = (EKFgraphIn *) malloc(sizeof(EKFgraphIn));
 
@@ -891,7 +891,7 @@ void StateHelper::EKFUpdate_1(State *state, std::vector<Type *> *H_order_p, Eige
     llvm_hpvm_untrack_mem(&H_id);
     llvm_hpvm_untrack_mem(&M_a); 
 
-    __hpvm__cleanup();
+    //__hpvm__cleanup();
 
 }
 
@@ -902,7 +902,7 @@ void StateHelper::EKFUpdate_2(State *state, std::vector<Type *> *H_order_p, Eige
     Eigen::MatrixXd M_a;// = Eigen::MatrixXd::Zero(state->_Cov.rows(), res.rows());
     std::vector<int> H_id;
 
-    __hpvm__init();
+    //__hpvm__init();
 
     EKFgraphIn *EKFgraphArgs = (EKFgraphIn *) malloc(sizeof(EKFgraphIn));
 
@@ -946,7 +946,7 @@ void StateHelper::EKFUpdate_2(State *state, std::vector<Type *> *H_order_p, Eige
     llvm_hpvm_untrack_mem(&H_id);
     llvm_hpvm_untrack_mem(&M_a); 
 
-    __hpvm__cleanup();
+    //__hpvm__cleanup();
 
 }
 
@@ -957,7 +957,7 @@ void StateHelper::EKFUpdate_3(State *state, std::vector<Type *> *H_order_p, Eige
     Eigen::MatrixXd M_a;// = Eigen::MatrixXd::Zero(state->_Cov.rows(), res.rows());
     std::vector<int> H_id;
 
-    __hpvm__init();
+    //__hpvm__init();
 
     EKFgraphIn *EKFgraphArgs = (EKFgraphIn *) malloc(sizeof(EKFgraphIn));
 
@@ -1001,7 +1001,7 @@ void StateHelper::EKFUpdate_3(State *state, std::vector<Type *> *H_order_p, Eige
     llvm_hpvm_untrack_mem(&H_id);
     llvm_hpvm_untrack_mem(&M_a); 
 
-    __hpvm__cleanup();
+    //__hpvm__cleanup();
 
 }
 
